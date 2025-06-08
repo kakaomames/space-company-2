@@ -682,7 +682,7 @@
 									<span>
 										Energy is created by power sources such as steam engines, solar power and advances even to fusion power and nuclear energy. The maximum you can hold to start with is 100,000 Energy, but batteries are unlockable which can increase this.
 										<br>
-										Time remaining until <span id="energyLimitType">full</span> storage: <b><span id="energyLimitTime">N/A</span></b>
+										<span id="energyLimitType">full</span>までの残り時間 storage: <b><span id="energyLimitTime">N/A</span></b>
 										<br>
 									</span>
 									<br>
@@ -1294,7 +1294,7 @@
 										Gems
 									</h2>
 									<span>
-										Gems are one of the primary resources. They are used for advanced machines and for powerful tools and components. They are more useful in later game.
+										宝石は主要な資源の1つです。それらは、高度な機械や強力なツールやコンポーネントに使用されています。それらは後のゲームでより有用です。
 									</span>
 									<hide class="gainButton">
 									<br>
@@ -3171,34 +3171,34 @@
 										Planet Smasher: <span id="smasher">0</span>
 									</h3>
 									<span>
-										Get meteorites the old-fashioned way: demolishing uninhabited exoplanets by firing high-energy particle beams at them, then collect the debris.
+										昔ながらの方法で隕石を手に入れましょう。高エネルギーの粒子ビームを発射して、無人の太陽系外惑星を破壊し、瓦礫を集めます。
 										<br>
-										Produces 72 Meteorite per second. Uses 111 Plasma per second.
+										毎秒72個の隕石を生成する。毎秒111プラズマを使用します。
 										<br>
-										Costs <span id="smasherSiliconCost">3.23M</span> Silicon, <span id="smasherSilverCost">5.89M</span> Silver, <span id="smasherGemCost">8.34M</span> Gems.
+										コスト <span id="smasherSiliconCost">3.23M</span> シリコン, <span id="smasherSilverCost">5.89M</span> 銀, <span id="smasherGemCost">8.34M</span> 宝石.
 									</span>
 									<br>
 									<br>
-									<button onclick="getSmasher()" class="btn btn-default">Get Planet Smasher</button>
-									<button onclick="destroyMachine('smasher')" class="btn btn-default destroy hidden">Destroy Planet Smasher</button>
+									<button onclick="getSmasher()" class="btn btn-default">惑星を破壊する器械を作る　</button>
+									<button onclick="destroyMachine('smasher')" class="btn btn-default destroy hidden">惑星を可解する器械を破壊する</button>
 								</td>
 							</tr>
 							<tr id="meteoriteTier4" class="hidden">
 								<td>
 									<h3 class="default btn-link">
-										Nebulous Synthesizer: <span id="nebulous">0</span>
+										隕石を降らせる雲: <span id="nebulous">0</span>
 									</h3>
 									<span>
-										Bypass the need for demolishing planets entirely by building your own nebula to create meteorites instead of planets.
+										惑星の代わりに隕石を作成するために、独自の星雲を構築することで、惑星を破壊する必要性を完全に回避します。
 										<br>
-										Produces 135 Meteorite per second. Uses 142 Plasma per second.
+										毎秒135個の隕石を生成する。毎秒142プラズマを使用します。
 										<br>
-										Costs <span id="nebulousLunariteCost">25.8M</span> Lunarite, <span id="nebulousLavaCost">19.7M</span> Lava, <span id="nebulousGoldCost">21.9M</span> Gold.
+										コスト <span id="nebulousLunariteCost">25.8M</span> ルナライト, <span id="nebulousLavaCost">19.7M</span> 溶岩, <span id="nebulousGoldCost">21.9M</span> 金.
 									</span>
 									<br>
 									<br>
-									<button onclick="getNebulous()" class="btn btn-default">Get Nebulous Synthesizer</button>
-									<button onclick="destroyMachine('nebulous')" class="btn btn-default destroy hidden">Destroy Nebulous Synthesizer</button>
+									<button onclick="getNebulous()" class="btn btn-default">隕石を降らす雲を作る</button>
+									<button onclick="destroyMachine('nebulous')" class="btn btn-default destroy hidden">隕石を降らせる雲を破壊する </button>
 								</td>
 							</tr>
 						</table>
@@ -3213,7 +3213,9 @@
 				<table class="table table-hover text-primary no-select pointer">
 					<tr id="scienceNav" onclick="activeResearchTab('scienceNav')" href="#scienceTab" aria-controls="scienceTab" role="tab" data-toggle="tab" style="height:60px;">
 						<td style="border:none; vertical-align:middle;">
+							
 							<img src="Icons/scienceIcon.png" style="width:30px; height:auto">
+							
 						</td>
 						<td style="border:none; vertical-align:middle;">
 							<span>
@@ -3222,7 +3224,7 @@
 						</td>
 						<td style="border:none; vertical-align:middle; text-align:center;">
 							<span>
-								<span id="scienceps">0</span>/Sec
+								<span id="scienceps">0</span>/秒
 							</span>
 					</td>
 						<td style="border:none; vertical-align:middle; text-align:right;">
