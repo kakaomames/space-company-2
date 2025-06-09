@@ -15256,16 +15256,1055 @@ Game.interstellar.military = (function(){
 
 
 
-<script type="text/javascript"></script>
-	<!-- resource.js -->
-<script type="text/javascript"></script>
-	<!-- resource.js -->
-<script type="text/javascript"></script>
-	<!-- resource.js -->
-<script type="text/javascript"></script>
-	<!-- resource.js -->
-<script type="text/javascript"></script>
-	<!-- resource.js -->
+<script type="text/javascript">Game.interstellar.stars = (function(){
+
+    var instance = {};
+
+    instance.dataVersion = 1;
+    instance.entries = {};
+    instance.starCount = 0;
+
+    instance.systemsConquered = 0;
+    
+    instance.initialise = function() {
+        for (var id in Game.starData) {
+            var data = Game.starData[id];
+            
+            this.starCount++;
+            this.entries[id] = $.extend({}, data, {
+                id: id,
+                htmlId: 'star_' + id,
+                current: 0,
+                spy: 0,
+                explored: false,
+                owned: false,
+                displayNeedsUpdate: false,
+            });
+            
+        }
+
+        console.debug("Loaded " + this.starCount + " Stars");
+
+    };
+
+    instance.save = function(data) {
+        data.stars = { v: this.dataVersion, i: {}};
+        for(var key in this.entries) {
+            data.stars.i[key] = this.entries[key].current;
+        }
+    };
+
+    instance.exploreSystem = function(id){
+        if(Game.interstellar.rocket.entries.tier1Rocket.built == true){
+            var data = this.entries[id];
+            var exploreCost = data.distance * 10000;
+            if(antimatter >= exploreCost){
+                antimatter -= exploreCost;
+                data.explored = true;
+                document.getElementById('star_' + id).className = "hidden";
+                document.getElementById('star_' + id + '_conquer').className = "";
+                newNavUnlock('intnav_' + data.factionId);
+                data.displayNeedsUpdate = true;
+            }
+        }
+    };
+
+    instance.getStarData = function(id) {
+        return this.entries[id];
+    };
+    
+
+    return instance;
+}());</script>
+	<!-- star.js -->
+	
+<script type="text/javascript">Game.interstellar.rocketParts = (function(){
+
+	var instance = {};
+
+	instance.entries = {};
+	instance.categoryEntries = {};
+
+	instance.initialise = function(){
+		for (var id in Game.rocketPartsData) {
+            var data = Game.rocketPartsData[id];
+            
+            this.navCount++;
+            this.entries[id] = $.extend({}, data, {
+                id: id,
+                htmlId: 'rocpart_' + id,
+                count: 0,
+                displayNeedsUpdate: true
+            });
+        }
+	}
+
+    instance.calcCost = function(self, resource){
+        return Math.floor(self.defaultCost[resource.toString()] * Math.pow(1.1,self.count) * rocketPrice);
+    }
+
+    instance.updateCost = function(entryName){
+        for(var resource in this.entries[entryName].cost){
+            var target = 0;
+            for(var i = 0; i < Object.keys(Game.interstellarUI.rocketPartObservers[entryName]).length; i++){
+                if(resource == Game.interstellarUI.rocketPartObservers[entryName][i].resource){
+                    this.entries[entryName].cost[resource.toString()] = this.calcCost(this.entries[entryName], resource);
+                    Game.interstellarUI.rocketPartObservers[entryName][i].value = this.entries[entryName].cost[resource.toString()];
+                }
+            }
+        }
+    }
+
+    instance.buildPart = function(entryName, buyNum) {
+        // Add the buildings and clamp to the maximum
+        for(var i = 0; i < buyNum; i++){
+            var resourcePass = 0;
+            for(var resource in this.entries[entryName].cost){
+                if(window[resource.toString()] >= this.entries[entryName].cost[resource.toString()]){
+                    resourcePass += 1;
+                }
+            }
+            if(resourcePass === Object.keys(Game.interstellar.rocketParts.entries[entryName].cost).length){
+                var newValue = Math.floor(this.entries[entryName].count + 1);
+                this.entries[entryName].count = Math.min(newValue, this.entries[entryName].max);
+                for(var resource in this.entries[entryName].cost){
+                    window[resource.toString()] -= this.entries[entryName].cost[resource.toString()];
+                }            
+                this.entries[entryName].displayNeedsUpdate = true;
+            }
+        }
+        this.updateCost(entryName);
+    };
+
+    instance.unlock = function(id) {
+        this.entries[id].unlocked = true;
+        this.entries[id].displayNeedsUpdate = true;
+    };
+
+	instance.getPartData = function(id) {
+        return this.entries[id];
+    };
+
+	return instance;
+
+}());</script>
+	<!-- rocketParts.js -->
+<script type="text/javascript">Game.interstellar.rocket = (function(){
+
+	var instance = {};
+
+	instance.entries = {};
+	instance.categoryEntries = {};
+	instance.entries = {};
+
+	instance.initialise = function(){
+		for (var id in Game.rocketData) {
+            var data = Game.rocketData[id];
+            this.navCount++;
+            this.entries[id] = $.extend({}, data, {
+                id: id,
+                htmlId: 'roc_' + id,
+                count: 0,
+                built: false,
+                displayNeedsUpdate: true
+            });
+        }
+	}
+
+    instance.updateCost = function(entryName){
+        var data = this.entries[entryName];
+        for(var part in data.cost){
+            var target = 0;
+            for(var i = 0; i < Object.keys(Game.interstellarUI.rocketPartObservers[entryName]).length; i++){
+                if(part == Game.interstellarUI.rocketPartObservers[entryName][i].part){
+                    Game.interstellarUI.rocketPartObservers[entryName][i].value = data.cost[part.toString()];
+                }
+            }
+        }
+    }
+
+    instance.buildRocket = function(entryName){
+        var partPass = 0;
+        for(var part in this.entries[entryName].cost){
+            if(Game.interstellar.rocketParts.entries[part].count >= this.entries[entryName].cost[part]){
+                partPass += 1;
+            }
+        }
+        if(partPass === Object.keys(Game.interstellar.rocket.entries[entryName].cost).length){
+            for(var part in this.entries[entryName].cost){
+            }
+            this.entries[entryName].built = true;
+            this.entries[entryName].displayNeedsUpdate = true;
+        }
+    }
+
+    instance.unlock = function(id) {
+        this.entries[id].unlocked = true;
+        this.entries[id].displayNeedsUpdate = true;
+    };
+
+	instance.getRocketData = function(id) {
+        return this.entries[id];
+    };
+
+	return instance;
+
+}());</script>
+	<!-- rocket.js -->
+
+
+
+
+	
+<script type="text/javascript">Game.stargaze = (function(){
+
+	var instance = {};
+
+	instance.entries = {};
+	instance.categoryEntries = {};
+	instance.navCount = 0;
+
+	instance.upgradeEntries = {};
+	
+	instance.rebirthStart = [];				// Things you start with
+	instance.rebirthUnlocked = [];			// Things that start unhidden
+	instance.rebirthChildUnlocked = [];		// Things that have children that start unhidden
+
+	instance.respecCount = 3;				// Respecs available
+
+	instance.rebirthNeedsUpdate = true;
+
+	instance.unlocked = false;
+
+	instance.initialise = function(){
+		for (var id in Game.stargazeData) {
+			var data = Game.stargazeData[id];
+			
+			this.navCount++;
+			this.entries[id] = $.extend({}, data, {
+				id: id,
+				htmlId: 'stargazeNav' + id,
+				displayNeedsUpdate: true
+			});
+		}
+		console.debug("Loaded " + this.navCount + " Stargaze Navs");
+
+		for (var id in Game.prestigeData) {
+			var data = Game.prestigeData[id];
+			
+			this.navCount++;
+			this.upgradeEntries[id] = $.extend({}, {
+				id: id,
+				htmlId: 'stargazeUpg' + id,
+				unlocked: true,
+				displayNeedsUpdate: true,
+				onApply: null,
+				rebirthUnlocked: [],
+				rebirthChildUnlocked: [],
+				rebirthStart: {}
+			}, data);
+		}
+	};
+
+	instance.resetVars = function(){
+		researchUnlocked=!1,researched=[],available=[],explored=[],tabsUnlocked=[],resourcesUnlocked=[],noBorder=[],rocketLaunched=!1,buttonsHidden=[],activated=[],techUnlocked=!1,meteoriteUnlocked=!1,globalEnergyLock=!1,plasma=0,plasmaps=0,PSU=0,PSUSilverCost=77e4,PSUGoldCost=77e4,PSUUraniumCost=55e4,PSUT2=0,PSUT2SilverCost=93e5,PSUT2GoldCost=93e5,PSUT2UraniumCost=68e5,heater=0,heaterLunariteCost=75e3,heaterGemCost=68e3,heaterSiliconCost=59e3,heaterToggled=!0,heaterEnergyInput=1e3,heaterHydrogenInput=10,heaterOutput=1,plasmatic=0,plasmaticLunariteCost=81e4,plasmaticSiliconCost=72e4,plasmaticMeteoriteCost=970,plasmaticToggled=!0,plasmaticEnergyInput=8500,plasmaticHeliumInput=80,plasmaticOutput=10,bath=0,bathLavaCost=62e5,bathGoldCost=59e5,bathMeteoriteCost=12100,bathToggled=!0,bathEnergyInput=15e3,bathHydrogenInput=100,bathHeliumInput=100,bathOutput=140,energy=0,energyps=0,battery=0,batteryMetalCost=5e4,batteryGemCost=5e4,batteryLunariteCost=3e4,batteryT2=0,batteryT2MetalCost=55e4,batteryT2GemCost=55e4,batteryT2LunariteCost=33e4,batteryT3=0,batteryT3MetalCost=55e5,batteryT3GemCost=55e5,batteryT3LunariteCost=33e5,batteryT4=0,batteryT4MetalCost=55e6,batteryT4GemCost=55e6,batteryT4LunariteCost=33e6,batteryT5=0,batteryT5MetalCost=49e7,batteryT5GemCost=49e7,batteryT5LunariteCost=27e7,charcoalEngine=0,charcoalEngineMetalCost=50,charcoalEngineGemCost=25,charcoalEngineCharcoalInput=1,charcoalEngineOutput=2,solarPanel=0,solarPanelMetalCost=30,solarPanelGemCost=35,solarPanelOutput=1.5,methaneStation=0,methaneStationLunariteCost=110,methaneStationTitaniumCost=90,methaneStationMethaneInput=6,methaneStationOutput=23,nuclearStation=0,nuclearStationLunariteCost=2e4,nuclearStationTitaniumCost=1e4,nuclearStationUraniumInput=7,nuclearStationOutput=153,magmatic=0,magmaticLunariteCost=25e3,magmaticGemCost=2e4,magmaticSilverCost=15e3,magmaticLavaInput=11,magmaticOutput=191,fusionReactor=0,fusionReactorLunariteCost=3e4,fusionReactorTitaniumCost=2e4,fusionReactorSiliconCost=15e3,fusionReactorHydrogenInput=10,fusionReactorHeliumInput=10,fusionReactorOutput=273,uranium=0,uraniumStorage=50,uraniumNextStorage=100,uraniumps=0,grinder=0,grinderTitaniumCost=2e3,grinderLunariteCost=4e3,grinderGoldCost=2e3,grinderOutput=1,cubic=0,cubicUraniumCost=80,cubicLunariteCost=1e4,cubicOilCost=1e4,cubicEnergyInput=40,cubicOutput=9,enricher=0,enricherLunariteCost=21700,enricherTitaniumCost=23e3,enricherSiliconCost=13500,enricherEnergyInput=180,enricherOutput=61,recycler=0,recyclerLunariteCost=93100,recyclerMethaneCost=47e3,recyclerMeteoriteCost=830,recyclerEnergyInput=463,recyclerOutput=235,planetNuke=0,planetNukeTitaniumCost=486e3,planetNukeSiliconCost=266e3,planetNukeIceCost=364e3,planetNukeEnergyInput=2719,planetNukeOutput=2412,lava=0,lavaStorage=50,lavaNextStorage=100,lavaps=0,crucible=0,crucibleGemCost=8e3,crucibleLunariteCost=4e3,crucibleOutput=1,extractor=0,extractorLunariteCost=16e3,extractorTitaniumCost=12e3,extractorSiliconCost=6e3,extractorEnergyInput=58,extractorOutput=7,extruder=0,extruderLunariteCost=69e3,extruderTitaniumCost=57e3,extruderSiliconCost=39e3,extruderEnergyInput=237,extruderOutput=43,veluptuator=0,veluptuatorLunariteCost=298e3,veluptuatorGoldCost=121e3,veluptuatorMeteoriteCost=750,veluptuatorEnergyInput=689,veluptuatorOutput=187,condensator=0,condensatorLunariteCost=288e3,condensatorGemCost=21e4,condensatorIceCost=238e3,condensatorEnergyInput=4142,condensatorOutput=2103,oil=0,oilStorage=50,oilNextStorage=100,oilps=0,pump=0,pumpMetalCost=60,pumpGemCost=20,pumpOutput=1,pumpjack=0,pumpjackMetalCost=250,pumpjackGemCost=80,pumpjackOilCost=50,pumpjackEnergyInput=4,pumpjackOutput=10,oilField=0,oilFieldLunariteCost=2400,oilFieldTitaniumCost=2700,oilFieldSiliconCost=3900,oilFieldEnergyInput=17,oilFieldOutput=63,oilRig=0,oilRigLunariteCost=19400,oilRigTitaniumCost=16800,oilRigMeteoriteCost=760,oilRigEnergyInput=44,oilRigOutput=246,fossilator=0,fossilatorUraniumCost=11e4,fossilatorCharcoalCost=96e3,fossilatorLavaCost=167e3,fossilatorEnergyInput=258,fossilatorOutput=2627,metal=0,metalStorage=50,metalNextStorage=100,metalps=0,miner=0,minerMetalCost=10,minerWoodCost=5,minerOutput=1,heavyDrill=0,heavyDrillMetalCost=160,heavyDrillGemCost=60,heavyDrillOilCost=50,heavyDrillEnergyInput=2,heavyDrillOutput=8,gigaDrill=0,gigaDrillLunariteCost=2800,gigaDrillGemCost=3400,gigaDrillSiliconCost=4100,gigaDrillEnergyInput=9,gigaDrillOutput=108,quantumDrill=0,quantumDrillLunariteCost=29e3,quantumDrillGoldCost=18700,quantumDrillMeteoriteCost=900,quantumDrillEnergyInput=24,quantumDrillOutput=427,multiDrill=0,multiDrillTitaniumCost=184e3,multiDrillGoldCost=184e3,multiDrillOilCost=17e4,multiDrillEnergyInput=131,multiDrillOutput=4768,gem=0,gemStorage=50,gemNextStorage=100,gemps=0,gemMiner=0,gemMinerMetalCost=15,gemMinerGemCost=10,gemMinerOutput=1,advancedDrill=0,advancedDrillMetalCost=120,advancedDrillGemCost=200,advancedDrillOilCost=60,advancedDrillEnergyInput=2,advancedDrillOutput=4,diamondDrill=0,diamondDrillLunariteCost=3400,diamondDrillGemCost=8e3,diamondDrillSiliconCost=4500,diamondDrillEnergyInput=15,diamondDrillOutput=89,carbyneDrill=0,carbyneDrillLunariteCost=21e3,carbyneDrillGemCost=27e3,carbyneDrillMeteoriteCost=800,carbyneDrillEnergyInput=40,carbyneDrillOutput=358,diamondChamber=0,diamondChamberUraniumCost=181e3,diamondChamberCharcoalCost=185e3,diamondChamberMeteoriteCost=12500,diamondChamberEnergyInput=260,diamondChamberOutput=3747,charcoal=0,charcoalStorage=50,charcoalNextStorage=100,charcoalps=0,charcoalToggled=!0,woodburner=0,woodburnerMetalCost=10,woodburnerWoodCost=5,woodburnerWoodInput=2,woodburnerOutput=1,furnace=0,furnaceMetalCost=80,furnaceWoodCost=40,furnaceOilCost=100,furnaceEnergyInput=3,furnaceWoodInput=6,furnaceOutput=4,kiln=0,kilnLunariteCost=3500,kilnGemCost=6200,kilnSiliconCost=3800,kilnEnergyInput=13,kilnWoodInput=56,kilnOutput=53,fryer=0,fryerLunariteCost=15800,fryerLavaCost=12500,fryerMeteoriteCost=560,fryerEnergyInput=34,fryerWoodInput=148,fryerOutput=210,microPollutor=0,microPollutorMetalCost=133e3,microPollutorWoodCost=189e3,microPollutorLavaCost=16e4,microPollutorEnergyInput=187,microPollutorWoodInput=950,microPollutorOutput=2267,wood=0,woodStorage=50,woodNextStorage=100,woodps=0,woodcutter=0,woodcutterMetalCost=10,woodcutterWoodCost=5,woodcutterOutput=1,laserCutter=0,laserCutterMetalCost=50,laserCutterGemCost=90,laserCutterOilCost=40,laserCutterEnergyInput=4,laserCutterOutput=6,deforester=0,deforesterLunariteCost=3e3,deforesterTitaniumCost=2700,deforesterSiliconCost=2500,deforesterEnergyInput=16,deforesterOutput=74,infuser=0,infuserLunariteCost=16e3,infuserOilCost=31200,infuserMeteoriteCost=490,infuserEnergyInput=43,infuserOutput=297,forest=0,forestMetalCost=122e3,forestGemCost=151e3,forestHydrogenCost=183e3,forestEnergyInput=244,forestOutput=3278,silicon=0,siliconStorage=50,siliconNextStorage=100,siliconps=0,blowtorch=0,blowtorchLunariteCost=150,blowtorchTitaniumCost=30,blowtorchOutput=1,scorcher=0,scorcherLunariteCost=500,scorcherGemCost=1200,scorcherOilCost=1600,scorcherEnergyInput=18,scorcherOutput=9,annihilator=0,annihilatorLunariteCost=3e3,annihilatorGemCost=8300,annihilatorSilverCost=2400,annihilatorEnergyInput=53,annihilatorOutput=40,desert=0,desertLunariteCost=2e4,desertSiliconCost=17700,desertMeteoriteCost=400,desertEnergyInput=138,desertOutput=157,tardis=0,tardisTitaniumCost=204e3,tardisSiliconCost=205e3,tardisMeteoriteCost=17800,tardisEnergyInput=746,tardisOutput=1487,lunarite=0,lunariteStorage=50,lunariteNextStorage=100,lunariteps=0,moonWorker=0,moonWorkerGemCost=500,moonWorkerOutput=1,moonDrill=0,moonDrillMetalCost=1e3,moonDrillGemCost=600,moonDrillOilCost=400,moonDrillEnergyInput=20,moonDrillOutput=10,moonQuarry=0,moonQuarryLunariteCost=8e3,moonQuarryGemCost=5e3,moonQuarrySiliconCost=3500,moonQuarryEnergyInput=70,moonQuarryOutput=53,planetExcavator=0,planetExcavatorTitaniumCost=45e3,planetExcavatorIceCost=37e3,planetExcavatorMeteoriteCost=500,planetExcavatorEnergyInput=182,planetExcavatorOutput=207,cloner=0,clonerTitaniumCost=204e3,clonerGoldCost=15e4,clonerMethaneCost=195e3,clonerEnergyInput=1216,clonerOutput=2122,methane=0,methaneStorage=50,methaneNextStorage=100,methaneps=0,vacuum=0,vacuumLunariteCost=50,vacuumGemCost=500,vacuumOutput=1,suctionExcavator=0,suctionExcavatorLunariteCost=100,suctionExcavatorGemCost=800,suctionExcavatorOilCost=600,suctionExcavatorEnergyInput=16,suctionExcavatorOutput=8,spaceCow=0,spaceCowLunariteCost=1e4,spaceCowTitaniumCost=9e3,spaceCowSiliconCost=4100,spaceCowEnergyInput=49,spaceCowOutput=37,vent=0,ventLunariteCost=52e3,ventHeliumCost=47e3,ventMeteoriteCost=390,ventEnergyInput=132,ventOutput=149,interCow=0,interCowLunariteCost=14e3,interCowGoldCost=202e3,interCowHydrogenCost=158e3,interCowEnergyInput=899,interCowOutput=1393,titanium=0,titaniumStorage=50,titaniumNextStorage=100,titaniumps=0,explorer=0,explorerGemCost=1e3,explorerOutput=1,lunariteDrill=0,lunariteDrillLunariteCost=200,lunariteDrillGemCost=800,lunariteDrillOilCost=1e3,lunariteDrillEnergyInput=13,lunariteDrillOutput=9,pentaDrill=0,pentaDrillLunariteCost=14e3,pentaDrillGemCost=11e3,pentaDrillSiliconCost=5600,pentaDrillEnergyInput=46,pentaDrillOutput=49,titanDrill=0,titanDrillLunariteCost=63e3,titanDrillGoldCost=27e3,titanDrillMeteoriteCost=600,titanDrillEnergyInput=123,titanDrillOutput=197,club=0,clubUraniumCost=175e3,clubWoodCost=164e3,clubHeliumCost=156e3,clubEnergyInput=690,clubOutput=2106,gold=0,goldStorage=50,goldNextStorage=100,goldps=0,droid=0,droidLunariteCost=200,droidMethaneCost=50,droidOutput=1,destroyer=0,destroyerLunariteCost=500,destroyerGemCost=1500,destroyerOilCost=1e3,destroyerEnergyInput=19,destroyerOutput=8,deathStar=0,deathStarLunariteCost=17e3,deathStarSilverCost=11500,deathStarSiliconCost=8200,deathStarEnergyInput=81,deathStarOutput=51,actuator=0,actuatorLunariteCost=61e3,actuatorHeliumCost=15700,actuatorMeteoriteCost=600,actuatorEnergyInput=223,actuatorOutput=211,philosopher=0,philosopherMetalCost=208e3,philosopherSilverCost=167e3,philosopherMeteoriteCost=18e3,philosopherEnergyInput=1324,philosopherOutput=2422,silver=0,silverStorage=50,silverNextStorage=100,silverps=0,scout=0,scoutLunariteCost=100,scoutTitaniumCost=20,scoutOutput=1,spaceLaser=0,spaceLaserLunariteCost=350,spaceLaserGemCost=900,spaceLaserOilCost=1200,spaceLaserEnergyInput=24,spaceLaserOutput=13,bertha=0,berthaLunariteCost=19500,berthaTitaniumCost=18200,berthaSiliconCost=11e3,berthaEnergyInput=65,berthaOutput=53,cannon=0,cannonLunariteCost=85100,cannonOilCost=93800,cannonMeteoriteCost=520,cannonEnergyInput=170,cannonOutput=208,werewolf=0,werewolfUraniumCost=165e3,werewolfGemCost=209e3,werewolfMethaneCost=17e4,werewolfEnergyInput=1008,werewolfOutput=2261,hydrogen=0,hydrogenStorage=50,hydrogenNextStorage=100,hydrogenps=0,collector=0,collectorLunariteCost=6e3,collectorTitaniumCost=4800,collectorOutput=1,magnet=0,magnetLunariteCost=10800,magnetTitaniumCost=9600,magnetGoldCost=6600,magnetEnergyInput=63,magnetOutput=5,eCell=0,eCellSilverCost=37200,eCellGoldCost=34200,eCellSiliconCost=25800,eCellEnergyInput=238,eCellOutput=28,hindenburg=0,hindenburgLunariteCost=172e3,hindenburgMethaneCost=134e3,hindenburgMeteoriteCost=710,hindenburgEnergyInput=613,hindenburgOutput=113,harvester=0,harvesterLunariteCost=25e4,harvesterWoodCost=184e3,harvesterOilCost=146e3,harvesterEnergyInput=3562,harvesterOutput=3562,helium=0,heliumStorage=50,heliumNextStorage=100,heliumStorageCost=100,heliumps=0,drone=0,droneLunariteCost=8400,droneSiliconCost=6e3,droneOutput=1,tanker=0,tankerLunariteCost=12600,tankerTitaniumCost=10200,tankerSiliconCost=8400,tankerEnergyInput=72,tankerOutput=11,compressor=0,compressorLunariteCost=63e3,compressorTitaniumCost=43800,compressorSiliconCost=35400,compressorEnergyInput=248,compressorOutput=57,skimmer=0,skimmerLunariteCost=255e3,skimmerTitaniumCost=173e3,skimmerMeteoriteCost=770,skimmerEnergyInput=670,skimmerOutput=232,cage=0,cageLunariteCost=171e3,cageSiliconCost=165e3,cageMeteoriteCost=18600,cageEnergyInput=4075,cageOutput=2369,ice=0,iceStorage=50,iceNextStorage=100,iceStorageCost=100,iceps=0,icePick=0,icePickLunariteCost=17800,icePickGemCost=19300,icePickOutput=1,iceDrill=0,iceDrillLunariteCost=23900,iceDrillTitaniumCost=21200,iceDrillSiliconCost=19600,iceDrillEnergyInput=83,iceDrillOutput=9,freezer=0,freezerLunariteCost=117e3,freezerTitaniumCost=86e3,freezerSiliconCost=73e3,freezerEnergyInput=397,freezerOutput=65,mrFreeze=0,mrFreezeWoodCost=379e3,mrFreezeHeliumCost=14e3,mrFreezeMeteoriteCost=1500,mrFreezeEnergyInput=1135,mrFreezeOutput=278,overexchange=0,overexchangeMetalCost=21e4,overexchangeSilverCost=188e3,overexchangeHeliumCost=205e3,overexchangeEnergyInput=7397,overexchangeOutput=2973,meteorite=0,meteoriteStorage=50,meteoriteNextStorage=100,meteoriteStorageCost=100,meteoriteps=0,meteoriteToggled=!0,printer=0,printerLunariteCost=1e5,printerSiliconCost=5e4,printerPlasmaInput=3,printerOutput=1,web=0,webLunariteCost=93e4,webUraniumCost=49e4,webSiliconCost=51e4,webPlasmaInput=21,webOutput=8,smasher=0,smasherSiliconCost=323e4,smasherSilverCost=589e4,smasherGemCost=834e4,smasherPlasmaInput=111,smasherOutput=72,nebulous=0,nebulousLunariteCost=258e5,nebulousLavaCost=197e5,nebulousGoldCost=219e5,nebulousPlasmaInput=142,nebulousOutput=135,science=0,scienceps=0,lab=0,labMetalCost=20,labGemCost=15,labWoodCost=10,labOutput=.1,labT2=0,labT2MetalCost=1e3,labT2GemCost=200,labT2WoodCost=500,labT2Output=1,labT3=0,labT3MetalCost=17e3,labT3GemCost=4700,labT3WoodCost=9600,labT3Output=10,labT4=0,labT4MetalCost=61e4,labT4GemCost=37e4,labT4WoodCost=926e3,labT4Output=100,labT5=0,labT5MetalCost=124e5,labT5GemCost=73e5,labT5WoodCost=159e5,labT5Output=1e3,rocket=0,rocketFuel=0,rocketFuelps=0,rocketFuelToggled=!0,chemicalPlant=0,chemicalPlantMetalCost=1e3,chemicalPlantGemCost=750,chemicalPlantOilCost=500,chemicalPlantOilInput=20,chemicalPlantCharcoalInput=20,chemicalPlantOutput=.2,oxidisation=0,oxidisationMetalCost=12e3,oxidisationGemCost=8300,oxidisationOilCost=6800,oxidisationOilInput=100,oxidisationCharcoalInput=100,oxidisationOutput=1.5,hydrazine=0,hydrazineTitaniumCost=14e4,hydrazineSiliconCost=96300,hydrazineGoldCost=78600,hydrazineMethaneInput=520,hydrazineOutput=20,autoResource=null,dyson=0,dysonTitaniumCost=3e5,dysonGoldCost=1e5,dysonSiliconCost=2e5,dysonMeteoriteCost=1e3,dysonIceCost=1e5,ring=0,ringOutput=5e3,swarm=0,swarmOutput=25e3,sphere=0,sphereOutput=1e6,antimatter=0,antimatterps=0,antimatterStorage=1e5,antimatterToggled=!0;
+	};
+
+	instance.hideMachines = function(){
+		document.getElementById("labTier2").className="hidden",document.getElementById("labTier3").className="hidden",document.getElementById("labTier4").className="hidden",document.getElementById("labTier5").className="hidden",document.getElementById("oilTier2").className="hidden",document.getElementById("metalTier2").className="hidden",document.getElementById("gemTier2").className="hidden",document.getElementById("charcoalTier2").className="hidden",document.getElementById("woodTier2").className="hidden";for(var i=3;i<=4;i++)document.getElementById("uraniumTier"+i).className="hidden",document.getElementById("lavaTier"+i).className="hidden",document.getElementById("oilTier"+i).className="hidden",document.getElementById("metalTier"+i).className="hidden",document.getElementById("gemTier"+i).className="hidden",document.getElementById("charcoalTier"+i).className="hidden",document.getElementById("woodTier"+i).className="hidden",document.getElementById("siliconTier"+i).className="hidden",document.getElementById("lunariteTier"+i).className="hidden",document.getElementById("methaneTier"+i).className="hidden",document.getElementById("titaniumTier"+i).className="hidden",document.getElementById("goldTier"+i).className="hidden",document.getElementById("silverTier"+i).className="hidden",document.getElementById("hydrogenTier"+i).className="hidden",document.getElementById("heliumTier"+i).className="hidden",document.getElementById("iceTier"+i).className="hidden";
+	};
+
+	instance.rebirth = function(){
+		if(sphere < 1)return;
+		var check = confirm("Are you sure? This is non-reversible after you reset and save.");
+		if(check){
+			this.entries.darkMatter.count += this.entries.darkMatter.current;
+			Game.notifySuccess("Dark Matter!", "You have gained " + this.entries.darkMatter.current + " Dark Matter from rebirthing into your new life!");
+
+			for(var i = 0; i < resourcesUnlocked.length; i++){
+				document.getElementById(resourcesUnlocked[i]).className = "hidden";
+				if(resourcesUnlocked[i].indexOf("Nav") != -1)document.getElementById(resourcesUnlocked[i]).className = "sideTab hidden";
+			}
+			for(var i = 0; i < buttonsHidden.length; i++){
+				if(buttonsHidden[i].indexOf("Progress") != -1){
+					document.getElementById(buttonsHidden[i]).className = "progress";
+				} else {
+					document.getElementById(buttonsHidden[i]).className = "btn btn-default";
+				}
+			}
+			for(var i = 0; i < explored.length; i++){
+				document.getElementById(explored[i]).className = "inner sideTab hidden";
+				if(explored[i] != "moon", explored[i] != "venus", explored[i] != "mars", explored[i] != "asteroidBelt")document.getElementById(explored[i]).className = "outer sideTab hidden";
+			}
+			document.getElementById("rocket").textContent = "Not Built";
+			document.getElementById("rocketRocketCost").className = "red";
+			document.getElementById("solarRocket").className = "";
+			document.getElementById("spaceRocket").className = "sideTab";
+			document.getElementById("mercury").className = "sideTab hidden";
+			document.getElementById("collapseInner").className = "collapseInner sideTab hidden";
+			document.getElementById("collapseOuter").className = "collapseOuter sideTab hidden";
+			for(var i = 0; i < tabsUnlocked.length; i++){
+				document.getElementById(tabsUnlocked[i]).className = "hidden";
+			}
+			for(var i = 0; i < activated.length; i++){
+				$(document.getElementById(activated[i] + "Activation")).text("Dormant");
+				document.getElementById(activated[i] + "Activation").className = "red";
+			}
+			Game.tech.reset();
+			Game.interstellar.initialise();
+			Game.interstellar.comms.entries.astroBreakthrough.completed = false;
+      		Game.statistics.add("rebirthCount", 1);
+
+			this.resetVars();
+			this.hideMachines();
+      
+			updateCost();
+			updateDysonCost();
+			updateFuelProductionCost();
+			updateLabCost();
+			updateWonderCost();
+
+			Game.settings.entries.gainButtonsHidden = false;
+			for(var i = 0; i < document.getElementsByClassName("gainButton").length; i ++){
+                document.getElementsByClassName("gainButton")[i].className = "gainButton";
+            }
+            $('#gainButtonsHidden').prop('checked', false);
+
+			// Refreshing Interstellar Tab
+			var objects = ["comms", "rocket", "rocketParts", "antimatter", "military"];
+			for(var i = 0; i < objects.length; i++){
+				var object = Game.interstellar[objects[i]];
+				for(var entry in object.entries){
+					$('#' + object.entries[entry].htmlId + 'Count').text(object.entries[entry].count);
+				}
+			}
+			for(var star in Game.interstellar.stars.entries){
+				Game.interstellar.stars.entries[star].unlocked = false;
+				Game.interstellar.stars.entries[star].explored = false;
+				document.getElementById('star_' + star).className = "";
+				document.getElementById('star_' + star + '_conquer').className = "hidden";
+			}
+			for(var achiev in Game.achievements.entries){
+				var data = Game.achievements.entries[achiev]
+				data.unlocked = -1;
+				data.displayNeedsUpdate = true;
+				document.getElementById(data.id + '_bg').style = "width: 50px; height: 40px; background: url(" + data.iconPath + data.iconName + "." + data.iconExtension + ") no-repeat center; -webkit-background-size: contain;background-size: contain; margin-left: 5px;opacity: 0.2";
+			}
+			Game.achievements.rank = 0;
+			for(nav in this.entries){
+				if(this.entries[nav].opinion){
+					this.entries[nav].opinion = 0;
+					this.entries[nav].displayNeedsUpdate = true;
+				}
+			}
+
+			// Adding starting things
+			for(var upgrade in this.upgradeEntries){
+				var upgradeData = this.upgradeEntries[upgrade];
+				if(upgradeData.achieved == true){
+					upgradeData.remove();
+					upgradeData.onApply();
+					if(upgradeData.category != "intro" && upgradeData.category != "darkMatter")this.entries[upgradeData.category].opinion += upgradeData.opinion;
+				}
+				upgradeData.displayNeedsUpdate = true;
+			}
+			for(var i = 0; i < this.rebirthStart.length; i++){
+    			for(var object in this.rebirthStart[i]){
+					window[object] += this.rebirthStart[i][object];
+				}
+			}
+		}
+	};
+
+	instance.upgrade = function(id){
+		if(id == 'rebirth'){
+			this.rebirth();
+		}
+		if(id == 'respec'){
+			this.respec();
+			return;
+		}
+		var upgradeData = this.upgradeEntries[id];
+		if(!upgradeData) {
+			console.log('"' + id + '" is not a recognised upgrade.');
+			return;
+		}
+		if(upgradeData.achieved == false){
+			if(this.entries.darkMatter.count >= upgradeData.cost){
+				this.entries.darkMatter.count -= upgradeData.cost;
+				this.applyUpgradeEffect(id);
+				if(upgradeData.category != "intro" || "darkMatter")this.entries[upgradeData.category].opinion += upgradeData.opinion;
+				this.entries[upgradeData.category].displayNeedsUpdate = true;
+				upgradeData.achieved = true;
+			}
+		}
+	};
+
+	instance.applyUpgradeEffect = function(id) {
+		var data = this.upgradeEntries[id];
+		for(var i = 0; i < data.rebirthUnlocked.length; i++){
+			this.rebirthUnlocked.push(data.rebirthUnlocked[i]);
+		}
+		for(var i = 0; i < data.rebirthChildUnlocked.length; i++){
+			this.rebirthChildUnlocked.push(data.rebirthChildUnlocked[i]);
+		}
+		for(var object in data.rebirthStart){
+			this.rebirthStart.push(data.rebirthStart);
+		}
+		if(data.onApply !== null) {
+			data.onApply();
+		}
+		this.rebirthNeedsUpdate = true;
+	};
+
+	instance.respec = function(){
+		if(this.respecCount <= 0){
+			return;
+		}
+		if(confirm('Warning! You will still lose the respec if you have no upgrades.') == false){
+			return;
+		}
+		this.respecCount -= 1;
+		$('#respecCount').text(this.respecCount);
+		for(var upgrade in this.upgradeEntries){
+			var upgradeData = this.upgradeEntries[upgrade];
+			if(upgradeData.achieved == true){
+				this.entries.darkMatter.count += upgradeData.cost;
+				if(upgradeData.category != "intro" && upgradeData.category != "darkMatter"){
+					if(upgradeData.achieved == true)this.entries[upgradeData.category].opinion -= upgradeData.opinion;this.entries[upgradeData.category].displayNeedsUpdate = true;
+				}
+				upgradeData.remove();
+				upgradeData.achieved = false;
+			}
+			this.rebirthNeedsUpdate = true;
+		}
+		for(var i = 0; i < this.rebirthUnlocked.length; i++){
+			// Unused So Far
+		}
+		for(var i = 0; i < this.rebirthChildUnlocked.length; i++){
+			// Unused So Far
+		}
+		for(var i = 0; i < this.rebirthStart; i++){
+			for(var object in this.rebirthStart[i]){
+				window[object] -= this.rebirthStart[i][object];
+			}
+		}
+		this.rebirthUnlocked = {};
+		this.rebirthChildUnlocked = {};
+		this.rebirthStart = {};
+	}
+
+	instance.save = function(data){
+		data.stargaze = {entries: {}, upgradeEntries: {}, rebirthStart: {}, rebirthUnlocked: {}, rebirthChildUnlocked: {}, unlocked: this.unlocked};
+		for(var id in this.entries){
+			data.stargaze.entries[id] = this.entries[id];
+		}
+		for(var id in this.upgradeEntries){
+			data.stargaze.upgradeEntries[id] = {achiev: this.upgradeEntries[id].achieved};
+		}
+		for(var id in this.rebirthStart){
+			data.stargaze.rebirthStart[id] = this.rebirthStart[id];
+		}
+		for(var id in this.rebirthUnlocked){
+			data.stargaze.rebirthUnlocked[id] = this.rebirthUnlocked[id];
+		}
+		for(var id in this.rebirthChildUnlocked){
+			data.stargaze.rebirthChildUnlocked[id] = this.rebirthChildUnlocked[id];
+		}
+	};
+
+	instance.load = function(data){
+		if(data.stargaze){
+			if(typeof data.stargaze.entries !== 'undefined'){
+                for(id in data.stargaze.entries){
+                    this.entries[id] = data.stargaze.entries[id];
+                    this.entries[id].unlocked = true;
+                    this.entries[id].displayNeedsUpdate = true;
+                }
+            }
+            if(typeof data.stargaze.upgradeEntries !== 'undefined'){
+                for(id in data.stargaze.upgradeEntries){
+                	if(this.upgradeEntries[id]){
+	                    this.upgradeEntries[id].achieved = data.stargaze.upgradeEntries[id].achiev;
+	                    this.upgradeEntries[id].displayNeedsUpdate = true;
+	                }
+                }
+            }
+            if(typeof data.stargaze.rebirthStart !== 'undefined'){
+                for(id in data.stargaze.rebirthStart){
+                    this.rebirthStart[id] = data.stargaze.rebirthStart[id];
+                }
+            }
+            if(typeof data.stargaze.rebirthUnlocked !== 'undefined'){
+                for(id in data.stargaze.rebirthUnlocked){
+                    this.rebirthUnlocked[id] = data.stargaze.rebirthUnlocked[id];
+                }
+            }
+            if(typeof data.stargaze.rebirthChildUnlocked !== 'undefined'){
+                for(id in data.stargaze.rebirthChildUnlocked){
+                    this.rebirthChildUnlocked[id] = data.stargaze.rebirthChildUnlocked[id];
+                }
+            }
+            this.unlocked = data.stargaze.unlocked;
+		}
+		for(var id in this.upgradeEntries){
+			var data = this.upgradeEntries[id];
+			if(data.achieved == true){
+				if(data.onApply)data.onApply();
+			}
+		}
+	};
+
+	instance.getStargazeData = function(id) {
+		return this.entries[id];
+	};
+
+	return instance;
+
+}());</script>
+	<!-- stargaze.js -->
+<script type="text/javascript">Game.stargazeCategoryData = (function () {
+
+    var instance = {};
+
+    instance.general = {
+        title: 'General',
+        category: 'general'
+    };
+
+    instance.faction = {
+        title: 'Factions',
+        category: 'faction',
+    };
+
+    return instance;
+
+}());
+
+Game.stargazeData = (function(){
+
+	var instance = {};
+
+	instance.intro = {
+		name: "Introduction",
+		para1: '"So here we are, at what seems like the end of your journey, but what you don\'t realise... is that this is just the beginning. Gazing up at the stars, you wonder what you could do with all of your newfound wealth and your empire in the solar system.',
+		para2: 'Suddenly, the Overlord reaches out to you and says: "You have come far in your time, and I feel that your life is slowing to an end after a long life of empire building. However, you have not met the expectations I thought you would."',
+		para3: '"Despite disapointing me and not achieving as much greatness as I would have liked, because of your loyalty and your dedication to me, I am prepared to give you another chance at Rebirth."',
+		para4: '"You will have many chances to impress me, as I will give you the ability of redemption when you feel the time has come and sacrifice is necessary. Your empire will grow even greater than before every time you rebirth, and as long as your alliegence lies with me, I will show you the way to galactic domination."',
+		para5: '"You will start over, a new life, but in exchange for your soul, I will reward your next self with the knowledge you have gained during your time in this universe and some of the most valuble material in this side of the multiverse: Dark Matter."',
+		category: "general",
+		unlocked: true
+	};
+
+	instance.darkMatter = {
+		name: "Dark Matter",
+		desc: "Here, you can see how much Dark Matter you have acquired and the earnings you will recieve upon reset (in brackets). You can find out how DM is gained and can spend it on Dark-Matter-specific upgrades.",
+		current: 0,
+		count: 0,
+		category: "general",
+		unlocked: true
+	};
+
+	instance.carnelian = {
+		name: "Carnelian Resistance",
+		desc: "A ruthless faction with a fierce anger towards the ones in power, most notable, the Prasnian Empire. They are incessant in their opposition and focus their whole force towards attacking their enemies. Because of this, what they offer comprises mostly of upgrades tending towards a more active gameplay.",
+		category: "faction",
+		opinion: 0,
+		unlocked: true
+	};
+
+	instance.prasnian = {
+		name: "Prasnian Empire",
+		desc: "The current leader in the galaxy and the faction most focused on keeping things as they are. Opposed to change, they have an authoritarian regime and offer mainly upgrades concerning structures such as the Dysons or Wonders",
+		category: "faction",
+		opinion: 0,
+		unlocked: true
+	};
+
+	instance.hyacinite = {
+		name: "Hyacinite Congregation",
+		desc: "The Hyacinite Congregationg is a science loving society, proud of all advances in technology and always looking to the future. They fight for the truth and are welcoming to anyone who shares their beliefs.",
+		category: "faction",
+		opinion: 0,
+		unlocked: true
+	};
+
+	instance.kitrinos = {
+		name: "Kitrinos Corporation",
+		desc: "This private company has grown powerful over the galaxy and is inspired by profits, with allies to those who can support their aims. Upgrades offered focus on passive gains, with a large amount of automation.",
+		category: "faction",
+		opinion: 0,
+		unlocked: true
+	};
+
+	instance.moviton = {
+		name: "Moviton Syndicate",
+		desc: "The Moviton Syndicate is an expansionist centred faction, with a goal of conquest over the galaxy. They often play both sides of a conflict, hoping to gain from the chaos. They offer improvements in your travel, including rocket building and interstellar travel.",
+		category: "faction",
+		opinion: 0,
+		unlocked: true
+	};
+
+	instance.overlord = {
+		name: "Overlord Cult",
+		desc: "This faction is shrowded in mystery. While not much is known, a great sense of power overlooks the whole galaxy, seemingly above the other 5 factions and their 'petty' squables. The upgrades from your loyalty to the Overlord are not constrained to a type and vary greatly.",
+		category: "faction",
+		opinion: 0,
+		unlocked: true
+	};
+
+
+	return instance;
+
+}());
+
+Game.darkMatter = (function(){
+
+	var instance = {};
+
+	/************
+	** DM Gain **
+	************/
+
+	instance.wonder = {
+		name: "Wonders",
+		desc: "You get Dark Matter for the floors of the Wonder Station that you complete. It is likely you will have achieved all of these in your first run before resetting. You get 4 Dark Matter for every floor completed, but 2 for the last floor (only one wonder).",
+	};
+
+	instance.sphere = {
+		name: "Sphere",
+		desc: "For building a sphere in your home system and thus completing it, you get 15 dark matter. For every sphere built in another system, you gain 5 dark matter."
+	};
+
+	instance.research = {
+		name: "Research Efficiency",
+		desc: "For every 25 Research Efficiencies in any of the repurchaseable researches, you will get 2 Dark Matter.",
+	};
+
+	instance.rank = {
+		name: "Achievement Rank",
+		desc: "For every achievement rank attained, you will get 2 dark matter. Due to the easy difficulty in the first few achievement ranks, this will be your primary source of dark matter early in a run.",
+	};
+
+	instance.swarm = {
+		name: "Swarms",
+		desc: "One of the more complex systems, your Dark Matter gained from swarms is judged on an old mathematical sequence: Pascal's Triangle. You will get 1 dark matter for passing each triangular number of swarms necessary. For example: 1,3,6,10,15,21...",
+	};
+
+	return instance;
+
+}());
+
+Game.prestigeData = (function(){
+
+	var instance = {};
+
+	/************
+	** General **
+	************/
+
+	instance.rebirth = {
+		name: "Rebirth",
+		desc: "Stepping forth into a new life is a great undertaking and not something to be done on a whim. Once certain, you may start afresh, maintaining the knowledge and experience you gave gained from your previous life and renew yourself, achieving greater and faster than before. You will keep any unspent dark matter, as well as your upgrades. <br><b>NB: You cannot rebirth without a sphere, even on second runs.<br> NB: You will keep all upgrades purchased in your previous life  </b>",
+		cost: 0,
+		category: "intro",
+	};
+
+	instance.respec = {
+		name: "Respec",
+		desc: "When you have made a mistake or want to change your upgrades, you can respec and refund every upgrade for dark matter. Unfortunately, this huge amount of power can only be unleashed a finite number of times. The Overlord graciously gives you 3 free chances at redemption, but the rest will have to be earned through rebirth (1 extra every 3 times). <br><b>NB: You will lose machines gained with these ugprades, including all T5 machines. You will also divide your storage by 128 if you have the starting storage. (6400/50 = 128).</b>",
+		cost: 0,
+		category: "intro",
+	};
+
+	instance.increaseProd1 = {
+		name: "Dark Matter Boost",
+		desc: "This adds a 1% boost to all resources (including science) for each Dark Matter you have not spent.",
+		cost: 30,
+		category: "darkMatter",
+		onApply: function(){
+	        dmBoost += 0.01;
+	    },
+	    remove: function(){
+	    	dmBoost -= 0.01;
+	    },
+		achieved: false,
+	};
+
+	/**************
+	** Carnelian **
+	**************/
+
+	instance.empowerManualGains = {
+		name: "Empower Manual Gains",
+		desc: "Increase all gain buttons to 20 per click instead of 1.",
+		cost: 5,
+		category: "carnelian",
+		opinion: 3,
+		onApply: function(){
+			// old
+			gainNum = 20;
+			for(var resource in RESOURCE){
+				if(RESOURCE[resource] != "science")$('#' + RESOURCE[resource] + 'Gain').text(gainNum);
+			}
+
+			// new
+			// for(var id in Game.resources.entries){
+			// 	Game.resources.entries[id].perClick = 20;
+			// 	Game.resources.entries[id].displayNeedsUpdate = true;
+			// }
+		},
+		remove: function(){
+	    	gainNum = 1;
+			for(var resource in RESOURCE){
+				if(RESOURCE[resource] != "science")$('#' + RESOURCE[resource] + 'Gain').text(gainNum);
+			}
+	    },
+		achieved: false
+	};
+
+	instance.startingStorage = {
+		name: "Starting Storage",
+		desc: "Start with 6,400 max-storage on everything on rebirth. (Does not affect if over 6,400)",
+		cost: 8,
+		category: "carnelian",
+		opinion: 6,
+		onApply: function(){
+			// old
+			var newStorage = 6400;
+			for(var i = 0; i < resources.length; i++){
+				if(window[resources[i] + "Storage"] <= 6400){
+					window[resources[i] + "Storage"] = newStorage;
+					window[resources[i] + "NextStorage"] = newStorage * 2;
+				}
+			}
+
+			// new
+		},
+		remove: function(){
+	    	for(var i = 0; i < resources.length; i++){
+				if(window[resources[i] + "Storage"] <= 6400){
+					window[resources[i] + "Storage"] = 50;
+					window[resources[i] + "NextStorage"] = 50 * 2;
+				} else {
+					window[resources[i] + "Storage"] /= 128;
+					window[resources[i] + "NextStorage"] /= 128;
+				}
+			}
+	    },
+		achieved: false
+	};
+
+	instance.storageDiscount = {
+		name: "Storage Discount",
+		desc: "All Storages no longer cost 100% of the main resource, but instead, 75%.",
+		cost: 21,
+		category: "carnelian",
+		opinion: 14,
+		onApply: function(){
+			// old
+			storagePrice -= 0.25;
+
+			// new
+		},
+		remove: function(){
+	    	storagePrice += 0.25;
+	    },
+		achieved: false
+	};
+
+	/*************
+	** Prasnian **
+	*************/
+
+	instance.T3Plasma = {
+		name: "Tier 3 Plasma",
+		desc: "Unlock the Electron Bath",
+		cost: 11,
+		category: "prasnian",
+		opinion: 4,
+		onApply: function(){
+			document.getElementById("plasmaTier3").className = "";
+		},
+		remove: function(){
+	    	document.getElementById("plasmaTier3").className = "hidden";
+	    	bath = 0;
+	    	updateCost();
+	    },
+		achieved: false
+	};
+
+	instance.floor1Discount = {
+		name: "Floor 1 Discount",
+		desc: "All Wonders on the First Floor recieve a 15% price reduction.",
+		cost: 16,
+		category: "prasnian",
+		opinion: 10,
+		onApply: function(){
+			floor1Price -= 0.15;
+            updateWonderCost();
+		},
+		remove: function(){
+	    	floor1Price += 0.15;
+            updateWonderCost();
+	    },
+		achieved: false
+	};
+
+	instance.floor23Discount = {
+		name: "Floor 2 & 3 Discount",
+		desc: "All Wonders on the Second and Third Floor recieve a 20% price reduction.",
+		cost: 19,
+		category: "prasnian",
+		opinion: 15,
+		onApply: function(){
+			floor23Price -= 0.2;
+			updateWonderCost();
+		},
+		remove: function(){
+	    	floor23Price += 0.2;
+            updateWonderCost();
+	    },
+		achieved: false
+	};
+
+	instance.autoEmc = {
+		name: "Automated EMC",
+		desc: "Check a box on an EMC resource and have that resource be 'EMCed' to the max every second.",
+		cost: 24,
+		category: "prasnian",
+		opinion: 17,
+		onApply: function(){
+			var updateList = document.getElementsByClassName("autoEmcHide");
+			for(var i = updateList.length-1; i >= 0; i--){
+				updateList[i].className = "autoEmcHide";
+			}
+		},
+		remove: function(){
+	    	var updateList = document.getElementsByClassName("autoEmcHide");
+			for(var i = updateList.length-1; i >= 0; i--){
+				updateList[i].className = "autoEmcHide hidden";
+			}
+	    },
+		achieved: false
+	}
+
+	/**************
+	** Hyacinite **
+	**************/
+
+	instance.startingLabs = {
+		name: "Starting Labs",
+		desc: "Start with 20 T1 Labs on rebirth.",
+		cost: 7,
+		category: "hyacinite",
+		opinion: 3,
+		rebirthStart: {lab:20},
+		onApply: function(){
+			lab += 20;
+		},
+		remove: function(){
+	    	lab -= 20
+	    },
+		achieved: false
+	};
+
+	instance.labDiscount = {
+		name: "Lab Discount",
+		desc: "T2+ Labs are 20% cheaper with this upgrade.",
+		cost: 16,
+		category: "hyacinite",
+		opinion: 12,
+		onApply: function(){
+			// old
+			labT2PlusMulti -= 0.2;
+			updateLabCost();
+
+			// new
+		},
+		remove: function(){
+            labT2PlusMulti += 0.2;
+			updateLabCost();
+	    },
+		achieved: false
+	};
+
+	instance.T5Labs = {
+		name: "Tier 5 Laboratories",
+		desc: "Unlock the Space Scientific Satellite Station",
+		cost: 24,
+		category: "hyacinite",
+		opinion: 14,
+		onApply: function(){
+			document.getElementById("labTier5").className = "";
+		},
+		remove: function(){
+	    	document.getElementById("labTier5").className = "hidden";
+	    	labT5 = 0;
+	    	updateLabCost();
+	    },
+		achieved: false
+	};
+
+	instance.energyEff = {
+		name: "Energy Efficiency Cap",
+		desc: "Increase Energy Efficiency research cap to 50% instead of 25%.",
+		cost: 36,
+		category: "hyacinite",
+		opinion: 25,
+		onApply: function(){
+			Game.tech.entries["energyEfficiencyResearch"].maxLevel += 25;
+		},
+		remove: function(){
+	    	Game.tech.entries["energyEfficiencyResearch"].maxLevel = 25;
+	    },
+		achieved: false
+	};
+
+
+	/*************
+	** Kitrinos **
+	*************/
+
+	instance.T1Discount = {
+		name: "Tier 1 Machine Discount",
+		desc: "All Tier 1 machines on every resource (in resources tab) are 10% cheaper.",
+		cost: 8,
+		category: "kitrinos",
+		opinion: 4,
+		onApply: function(){
+			T1Price -= 0.1;
+		},
+		remove: function(){
+	    	T1Price += 0.1;
+	    },
+		achieved: false
+	};
+
+	instance.T5Batteries = {
+		name: "Tier 5 Batteries",
+		desc: "Unlock the fifth tier of batteries for all your energy storage needs.",
+		cost: 14,
+		category: "kitrinos",
+		opinion: 17,
+		onApply: function(){
+			document.getElementById("batteriesT5").className = "";
+		},
+		remove: function(){
+	    	document.getElementById("batteriesT5").className = "hidden";
+	    	batteryT5 = 0;
+	    	updateCost();
+	    },
+		achieved: false
+	};
+
+	instance.T5Machines = {
+		name: "Tier 5 Machines",
+		desc: "Gain access to a fifth tier of machines to produce resources.",
+		cost: 35,
+		category: "kitrinos",
+		opinion: 20,
+		onApply: function(){
+			unlockTier5();
+		},
+		remove: function(){
+	    	removeTier5();
+	    },
+		achieved: false
+	};
+
+	// instance.recycling = {
+	// 	name: "Recycling",
+	// 	desc: "Instead of destroying machines, recycle them for 50% of the cost!",
+	// 	cost: 29,
+	// 	category: "hyacinite",
+	// 	achieved: false
+	// };
+
+	/************
+	** Moviton **
+	************/
+
+	instance.chemicalBoost = {
+		name: "Chemical Plant Boost",
+		desc: "Produce 100% more rocket fuel per chemical plant.",
+		cost: 11,
+		category: "moviton",
+		opinion: 7,
+		onApply: function(){
+			chemicalBoost += 1;
+		},
+		remove: function(){
+	    	chemicalBoost -= 1;
+	    },
+		achieved: false
+	};
+
+	instance.rocketDiscount = {
+		name: "Rocket Discount",
+		desc: "Rocket Parts Cost 35% less.",
+		cost: 23,
+		category: "moviton",
+		opinion: 28,
+		onApply: function(){
+			rocketPrice -= 0.35;
+		},
+		remove: function(){
+	    	rocketPrice += 0.35;
+	    },
+		achieved: false
+	};
+
+	instance.meteoriteTier3 = {
+		name: "Meteorite Tier 3",
+		desc: "Unlock the Planet Smasher building.",
+		cost: 37,
+		category: "moviton",
+		opinion: 29,
+		onApply: function(){
+			document.getElementById("meteoriteTier3").className = "";
+		},
+		remove: function(){
+	    	document.getElementById("meteoriteTier3").className = "hidden";
+	    	smasher = 0;
+			updateCost();
+	    },
+		achieved: false
+	}
+
+	instance.meteoriteTier4 = {
+		name: "Meteorite Tier 4",
+		desc: "Unlock the Nebulous Synthesizer building.",
+		cost: 49,
+		category: "moviton",
+		opinion: 36,
+		onApply: function(){
+			document.getElementById("meteoriteTier4").className = "";
+		},
+		remove: function(){
+	    	document.getElementById("meteoriteTier4").className = "hidden";
+	    	nebulous = 0;
+			updateCost();
+	    },
+		achieved: false
+	}
+
+	// instance.spaceElevator = {
+	// 	name: "Space Elevator",
+	// 	desc: "Build a giant elevator to reduce antimatter costs by 20%",
+	// 	cost: 42,
+	// 	category: "moviton",
+	// 	achieved: false
+	// }
+
+	/*************
+	** Overlord **
+	*************/
+
+	return instance;
+
+}());</script>
+	<!-- data/stargazeData.js -->
 <script type="text/javascript"></script>
 	<!-- resource.js -->
 
