@@ -7405,7 +7405,7 @@ var gainNum = 1; var labT1Multi = 1; var labT2PlusMulti = 1; var T1Price = 1; va
         self.updateAutoSave(delta);
 
         if(delta > 1) {
-            console.log("You have been away for " + Game.utils.getTimeDisplay(delta));
+            console.log("あなたは留守にしていました " + Game.utils.getTimeDisplay(delta));
         }
     };
 
@@ -7437,19 +7437,19 @@ var gainNum = 1; var labT1Multi = 1; var labT2PlusMulti = 1; var T1Price = 1; va
         var text = $('#impexpField').val();
         if (!text.trim()) return console.warn("No save to import provided.");
         if(text.length % 4 !== 0) {
-            console.log("String is not valid base64 encoded: " + text.length + ' (' + text.length % 4 + ')');
+            console.log("文字列は有効なbase64エンコードではありません: " + text.length + ' (' + text.length % 4 + ')');
             return;
         }
 
         var decompressed = LZString.decompressFromBase64(text);
         if(!decompressed) {
-            console.log("Import Game failed, could not decompress!");
+            console.log("インポートゲームに失敗しました、解凍できませんでした！");
             return;
         }
 
         localStorage.setItem("save", decompressed);
 
-        console.log("Imported Saved Game");
+        console.log("インポートされた保存されたゲーム");
 
         window.location.reload();
     };
@@ -9773,23 +9773,5475 @@ Game.statistics = (function(){
 	<!-- ↑statistics.js↑ -->
 
 
+
+
+
+
+
 	
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src=""></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
-<script type="text/javascript" src="data"></script>
+
+	
+
+	
+
+	
+
+
+
+
+
+	
+<script type="text/javascript" src="data">Game.resources = (function(){
+
+    var instance = {};
+
+    instance.dataVersion = 5;
+    instance.entries = {};
+    instance.categoryEntries = {};
+    instance.storageUpgrades = {};
+    instance.resourceTypeCount = 0;
+    instance.resourceCategoryCount = 0;
+    instance.storageUpgradeCount = 0;
+
+    instance.initialise = function() {
+        for (var id in Game.resourceData) {
+            var data = Game.resourceData[id];
+            this.resourceTypeCount++;
+            this.entries[id] = $.extend({}, data, {
+                id: id,
+                htmlId: 'res_' + id,
+                current: 0,
+                perSecond: 0,
+                perClick: 1,
+                iconPath: Game.constants.iconPath,
+                iconExtension: Game.constants.iconExtension,
+                displayNeedsUpdate: true,
+                hidden: false
+            });
+
+            this.entries[id].capacity = data.baseCapacity;
+        }
+
+        for (var id in Game.resourceCategoryData) {
+            var data = Game.resourceCategoryData[id];
+            this.resourceCategoryCount++;
+            this.categoryEntries[id] = $.extend({}, data, {
+                id: id
+            });
+        }
+
+        for (var id in Game.storageData) {
+            var data = Game.storageData[id];
+            this.storageUpgradeCount++;
+            this.storageUpgrades[id] = $.extend({}, data, {
+                id: id,
+                htmlId: "store_" + id
+            });
+        }
+
+        console.debug("Loaded " + this.resourceCategoryCount + " Resource Categories");
+        console.debug("Loaded " + this.resourceTypeCount + " Resource Types");
+    };
+
+    instance.update = function(delta) {
+        for(var id in this.entries) {
+            var addValue = this.entries[id].perSecond * delta;
+            this.addResource(id, addValue);
+        }
+    };
+
+    instance.save = function(data) {
+        data.resources = { v: this.dataVersion, r: {}};
+        for(var key in this.entries) {
+            data.resources.r[key] = {
+                n: this.entries[key].current,
+                u: this.entries[key].unlocked
+            }
+        }
+    };
+
+    instance.load = function(data) {
+        if(data.resources) {
+            if(data.resources.v && data.resources.v === this.dataVersion) {
+                for(var id in data.resources.i) {
+                    if(this.entries[id]) {
+                        this.addResource(id, data.resources.r[id].n);
+                        this.entries[id].unlocked = data.resources.r[id].u;
+                    }
+                }
+            }
+        }
+    };
+
+	// TODO: change to data-driven resources when available
+	instance.getResource = function(id) {
+		if (typeof window[id] === 'undefined') {
+			return 0;
+		}
+		return window[id];
+	};
+
+	// TODO: change to data-driven resources when available
+	instance.getStorage = function(id) {
+		if (id === RESOURCE.Energy) {
+			return getMaxEnergy();
+		} else if (id === RESOURCE.Plasma) {
+			return getMaxPlasma();
+		} else if (id === RESOURCE.Science) {
+			// -1 for unlimited storage
+			return -1;
+		} else if (id === RESOURCE.RocketFuel) {
+			return -1;
+		} else if (typeof window[id + 'Storage'] === 'undefined') {
+			return 0;
+		}
+		return window[id + 'Storage'];
+	};
+
+	// TODO: change to data-driven resources when available
+	instance.getProduction = function(id) {
+		if (typeof window[id + 'ps'] === 'undefined') {
+			return 0;
+		}
+		return window[id + 'ps'];
+	};
+
+	// TODO: change to data-driven resources when available
+	instance.addResource = function(id, count) {
+		if(isNaN(count) || count === null || Math.abs(count) <= 0) {
+			return;
+		}
+
+		if (typeof window[id] === 'undefined') {
+			return;
+		}
+
+		// Add the resource and clamp
+		var newValue = window[id] + count;
+		var storage = this.getStorage(id);
+		if (storage >= 0) {
+			window[id] = Math.max(0, Math.min(newValue, storage));
+		} else {
+			window[id] = Math.max(0, newValue);
+		}
+	};
+
+	// TODO: change to data-driven resources when available
+	instance.takeResource = function(id, count) {
+		if(isNaN(count) || count === null || Math.abs(count) <= 0) {
+			return;
+		}
+
+		if (typeof window[id] === 'undefined') {
+			return;
+		}
+
+		// Subtract the resource and clamp
+		var newValue = window[id] - count;
+		var storage = this.getStorage(id);
+		if (storage >= 0) {
+			window[id] = Math.max(0, Math.min(newValue, storage));
+		} else {
+			window[id] = Math.max(0, newValue);
+		}
+	};
+
+	// TODO: change to data-driven resources when available
+	instance.maxResource = function(id) {
+		if (typeof window[id] === 'undefined') {
+			return;
+		}
+
+		// resources without a storage cap will return -1 so do nothing
+		if (getStorage(id) < 0) {
+			return;
+		}
+
+		window[id] = getStorage(id);
+	};
+
+    instance.setPerSecondProduction = function(id, value) {
+        if(!this.entries[id]) {
+            console.error("Unknown Resource: " + id);
+            return;
+        }
+
+        if (value < 0 || isNaN(value) || value === undefined) {
+            console.error("Invalid per second value: " + value + " for " + id);
+            return;
+        }
+
+        this.entries[id].perSecond = value;
+    };
+
+    instance.upgradeStorage = function(id){
+        var upgradeData = this.storageUpgrades[id];
+        var res = this.getResourceData(upgradeData.resource);
+        if(res.current >= res.capacity*storagePrice){
+            res.current -= res.capacity*storagePrice;
+            res.capacity *= 2;
+            res.displayNeedsUpdate = true;
+
+            for(var r in upgradeData.cost){
+                upgradeData.cost[r] *= 2;
+            }
+            upgradeData.displayNeedsUpdate = true;
+        }
+    };
+
+    instance.calcCost = function(self, resource){
+        return Math.floor(Game.buildingData[self.id].cost[resource.toString()] * Math.pow(1.1,self.current));
+    };
+
+    instance.updateCost = function(data){
+        // TODO
+    };
+
+    instance.buyMachine = function(id, count){
+        var data = Game.buildings.getBuildingData(id);
+        var resourcePass = 0;
+        for(var resource in data.cost){
+            var res = Game.resources.getResourceData(resource);
+            if(res.current >= data.cost[resource]){
+                resourcePass += 1;
+            }
+        }
+        if(resourcePass === Object.keys(data.cost).length){
+            data.current += 1;
+            for(var resource in data.cost){
+                var res = Game.resources.getResourceData(resource);
+                res.current -= data.cost[resource];
+            }
+            this.updateCost(data);
+            this.updateResourcesPerSecond();
+            data.displayNeedsUpdate = true;
+        }
+    };
+
+    instance.destroyMachine = function(id, count){
+        var data = Game.buildings.getBuildingData(id);
+        if(data.current >= count){
+            data.current -= count;
+            this.updateCost(data);
+            data.displayNeedsUpdate = true;
+        }
+    };
+
+    instance.updateResourcesPerSecond = function(){
+        for(var resource in this.entries){
+            var res = this.entries[resource];
+            var ps = 0;
+            for(var id in Game.buildings.entries){
+                var building = Game.buildings.entries[id];
+                for(var value in building.resourcePerSecond){
+                    if(value == res){
+                        var val = building.resourcePerSecond[value];
+                        ps += val * building.current;
+                    }
+                }
+            }
+            res.perSecond = ps;
+        }
+    };
+
+    instance.unlock = function(id) {
+        this.entries[id].unlocked = true;
+        this.entries[id].displayNeedsUpdate = true;
+    };
+
+    instance.getResourceData = function(id) {
+        return this.entries[id];
+    };
+
+    instance.getCategoryData = function(id) {
+        return this.categoryEntries[id];
+    };
+
+    instance.showByCategory = function(category) {
+        for(var id in this.entries) {
+            var data = this.entries[id];
+            if(data.category === category) {
+                data.hidden = false;
+            }
+        }
+    };
+
+    instance.hideByCategory = function(category) {
+        for(var id in this.entries) {
+            var data = this.entries[id];
+            if(data.category === category) {
+                data.hidden = true;
+            }
+        }
+    };
+
+    return instance;
+}());
+</script>
+	<!-- resource.js -->
+<script type="text/javascript">Game.resourceCategoryData = (function () {
+
+    var instance = {};
+
+    instance.energy = {
+        title: 'Energy',
+        category: 'energy'
+    };
+
+    instance.earth = {
+        class: 'collapseEarth',
+        title: 'Earth Resources',
+        category: 'earth'
+    };
+
+    instance.innerSol = {
+        class: 'collapseInnerPlanetary',
+        title: 'Inner Planetary Resources',
+        category: 'innerSol'
+    };
+
+    instance.outerSol = {
+        class: 'collapseOuterPlanetary',
+        title: 'Outer Planetary Resources',
+        category: 'outerSol'
+    };
+
+    return instance;
+
+}());
+
+Game.resourceData = (function () {
+
+    var instance = {};
+
+
+    /*********************
+     * Energy Resources  *
+     *********************/
+
+    instance.energy = {
+        name: 'Energy',
+        desc: 'Energy is created by power sources such as steam engines, solar power and advances even to fusion power and nuclear energy. The maximum you can hold to start with is 100,000 Energy, but batteries are unlockable which can increase this.',
+        icon: 'energyIcon',
+        category: 'energy',
+        baseCapacity: 50000,
+        unlocked: false
+    };
+
+    instance.plasma = {
+        name: 'Plasma',
+        desc: 'Plasma is the 4th state of matter and is used by Tier 4 machines and large space structures as an extreme power source for your company.',
+        icon: 'plasmaIcon',
+        category: 'energy',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.uranium = {
+        name: 'Uranium',
+        desc: 'Metal is one of the primary resources. It is used for many things, including storage upgrades, machinery and most things in space.',
+        icon: 'uraniumIcon',
+        category: 'energy',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.lava = {
+        name: 'Lava',
+        desc: 'Hard to handle and only found in volcanoes, Lava is one of the hardest resources to get.',
+        icon: 'lavaIcon',
+        category: 'energy',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    /********************
+     * Earth Resources  *
+     ********************/
+
+    instance.oil = {
+        name: 'Oil',
+        desc: 'Oil is pumped up from the ground and is used to build Tier 2 resource gatherers.',
+        icon: 'oilIcon',
+        category: 'earth',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.metal = {
+        name: 'Metal',
+        desc: 'Metal is one of the primary resources. It is used for many things, including storage upgrades, machinery and most things in space.',
+        icon: 'metalIcon',
+        category: 'earth',
+        baseCapacity: 50,
+        unlocked: true
+    };
+
+    instance.gem = {
+        name: 'Gem',
+        desc: 'Gems are one of the primary resources. They are used for advanced machines and for powerful tools and components. They are more useful in later game.',
+        icon: 'gemIcon',
+        category: 'earth',
+        baseCapacity: 50,
+        unlocked: true
+    };
+
+    instance.charcoal = {
+        name: 'Charcoal',
+        desc: 'Charcoal is a secondary tier resource and is used by Engines to produce power for your company. 1 Charcoal is created by burning wood',
+        icon: 'charcoalIcon',
+        category: 'earth',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.wood = {
+        name: 'Wood',
+        desc: 'Wood is one of the primary resources. It is used more often in early game for tools and buildings.',
+        icon: 'woodIcon',
+        category: 'earth',
+        baseCapacity: 50,
+        unlocked: true
+    };
+
+    instance.silicon = {
+        name: 'Silicon',
+        desc: 'Silicon is useful for automatic mining systems of the third tier. These will be very useful in building your first wonder. Despite being a high tier resource, it is found mainly on Earth by heating sand.',
+        icon: 'siliconIcon',
+        category: 'earth',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+
+    /******************************
+     * Inner Planetary Resources  *
+     ******************************/
+
+    instance.lunarite = {
+        name: 'Lunarite',
+        desc: 'Lunarite is found on the Moon and is a rare type of resource not found on Earth. It is much stronger than regular metal but is a lot harder to get.',
+        icon: 'lunariteIcon',
+        category: 'innerSol',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.methane = {
+        name: 'Methane',
+        desc: 'Methane is a gas found in abundance on Venus. It can be used to power your company much more effectively than solid fuel.',
+        icon: 'methaneIcon',
+        category: 'innerSol',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.titanium = {
+        name: 'Titanium',
+        desc: 'Titanium is a metal found mostly on Mars. It is used for building strong machines and methane power plants.',
+        icon: 'titaniumIcon',
+        category: 'innerSol',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.gold = {
+        name: 'Gold',
+        desc: 'Gold is a metal found inside asteroids. It is used to build some Wonders and for complex machinery.',
+        icon: 'goldIcon',
+        category: 'innerSol',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.silver = {
+        name: 'Silver',
+        desc: 'Silver is another metal most commonly found in the asteroid belt.',
+        icon: 'silverIcon',
+        category: 'innerSol',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    /******************************
+     * Outer Planetary Resources  *
+     ******************************/
+
+    instance.hydrogen = {
+        name: 'Hydrogen',
+        desc: 'Hydrogen is extremely common on gas giants such as Jupiter and Saturn.',
+        icon: 'hydrogenIcon',
+        category: 'outerSol',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.helium = {
+        name: 'Helium',
+        desc: 'Helium is the second most common element on gas giants such as Jupiter and Saturn.',
+        icon: 'heliumIcon',
+        category: 'outerSol',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.ice = {
+        name: 'Ice',
+        desc: 'Ice, although it can be collected on Earth, is not nearly as profitable as flying to Pluto and back with space craft full of the stuff. It is mainly used for super-cooling technology necessary for Tier 4 machines.',
+        icon: 'iceIcon',
+        category: 'outerSol',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.meteorite = {
+        name: 'Meteorite',
+        desc: 'Creating Meteorite is only possible from purer forms of energy than those created with earth technology. Therefore, Plasma is necessary to make the strong resource.',
+        icon: 'meteoriteIcon',
+        category: 'outerSol',
+        baseCapacity: 50,
+        unlocked: false
+    };
+
+    instance.science = {
+        name: 'Science Production',
+        desc: 'Science is used for researching new technologies to further your progress in the game.',
+        icon: 'scienceIcon',
+        baseCapacity: 1000000,
+        unlocked: false
+    };
+
+    return instance;
+}());
+
+Game.storageData = (function(){
+
+    var instance = {};
+
+    // Storage Upgrades
+    var baseUpgradeData = {
+        name: 'Storage Upgrade:',
+        unlocked: true,
+        costType: COST_TYPE.FIXED,
+        current: 0,
+        maxLevel: -1,
+        resource: undefined,
+        displayNeedsUpdate: true,
+
+        buttonText: 'Upgrade Storage',
+
+
+        apply: function (self) {
+            if (typeof self.resource === 'undefined') {
+                return;
+            }
+            var res = Game.resources.getResourceData(self.resource);
+            res.capacity *= 2;
+            res.displayNeedsUpdate = true;
+            self.displayNeedsUpdate = true;
+        },
+    };
+
+    /*********************
+     * Energy Resources  *
+     *********************/
+
+    instance.storageUpgradePlasma = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Plasma storage size to ',
+        resource: 'plasma',
+        cost: {
+            'plasma': 50
+        }
+    });
+
+    instance.storageUpgradeUranium = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Uranium storage size to ',
+        resource: 'uranium',
+        cost: {
+            'uranium': 50,
+            'lunarite': 20
+        }
+    });
+
+    instance.storageUpgradeLava = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Lava storage size to ',
+        resource: 'lava',
+        cost: {
+            'lava': 50,
+            'lunarite': 20
+        }
+    });
+
+    /********************
+     * Earth Resources  *
+     ********************/
+
+    instance.storageUpgradeOil = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Oil storage size to ',
+        resource: 'oil',
+        cost: {
+            'oil': 50,
+            'metal': 20
+        }
+    });
+
+    instance.storageUpgradeMetal = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Metal storage size to ',
+        resource: 'metal',
+        cost: {
+            'metal': 50
+        }
+    });
+
+    instance.storageUpgradeGem = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Gem storage size to ',
+        resource: 'gem',
+        cost: {
+            'gem': 50,
+            'metal': 20
+        }
+    });
+
+    instance.storageUpgradeCharcoal = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Charcoal storage size to ',
+        resource: 'charcoal',
+        cost: {
+            'charcoal': 50,
+            'metal': 20
+        }
+    });
+
+    instance.storageUpgradeWood = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Wood storage size to ',
+        resource: 'wood',
+        cost: {
+            'wood': 50,
+            'metal': 20
+        }
+    });
+
+    instance.storageUpgradeSilicon = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Silicon storage size to ',
+        resource: 'silicon',
+        cost: {
+            'silicon': 50,
+            'lunarite': 20
+        }
+    });
+
+    /******************************
+     * Inner Planetary Resources  *
+     ******************************/
+
+    instance.storageUpgradeLunarite = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Lunarite storage size to ',
+        resource: 'lunarite',
+        cost: {
+            'lunarite': 50,
+            'metal': 400
+        }
+    });
+
+    instance.storageUpgradeMethane = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Methane storage size to ',
+        resource: 'methane',
+        cost: {
+            'methane': 50,
+            'lunarite': 20
+        }
+    });
+
+    instance.storageUpgradeTitanium = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Titanium storage size to ',
+        resource: 'titanium',
+        cost: {
+            'titanium': 50,
+            'lunarite': 20
+        }
+    });
+
+    instance.storageUpgradeGold = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Gold storage size to ',
+        resource: 'gold',
+        cost: {
+            'gold': 50,
+            'lunarite': 20
+        }
+    });
+
+    instance.storageUpgradeSilver = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Silver storage size to ',
+        resource: 'silver',
+        cost: {
+            'silver': 50,
+            'lunarite': 20
+        }
+    });
+
+    /******************************
+     * Outer Planetary Resources  *
+     ******************************/
+
+    instance.storageUpgradeHydrogen = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Hydrogen storage size to ',
+        resource: 'hydrogen',
+        cost: {
+            'hydrogen': 50,
+            'lunarite': 20
+        }
+    });
+
+    instance.storageUpgradeHelium = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Helium storage size to ',
+        resource: 'helium',
+        cost: {
+            'helium': 50,
+            'lunarite': 20
+        }
+    });
+
+    instance.storageUpgradeIce = $.extend({}, baseUpgradeData, {
+        desc: 'Upgrade your Ice storage size to ',
+        resource: 'ice',
+        cost: {
+            'ice': 50,
+            'lunarite': 20
+        }
+    });
+
+    instance.storageUpgradeMeteorite = $.extend({}, baseUpgradeData, {
+        desc: 'メテオライトのストレージサイズを ',
+        resource: 'meteorite',
+        cost: {
+            'meteorite': 50,
+            'lunarite': 4
+        }
+    });
+
+    return instance;
+}());</script>
+	<!-- data/resourceData.js -->
+<script type="text/javascript">Game.buildings = (function(){
+
+    var instance = {};
+
+    instance.dataVersion = 1;
+    instance.entries = {};
+    instance.updatePerSecondProduction = true;
+    instance.techTypeCount = 0;
+
+    instance.initialise = function() {
+        for (var id in Game.buildingData) {
+            var data = Game.buildingData[id];
+            this.techTypeCount++;
+            this.entries[id] = $.extend({}, data, {
+                id: id,
+                htmlId: 'resbld_' + id,
+                current: 0,
+                iconPath: Game.constants.iconPath,
+                iconName: data.icon,
+                iconExtension: Game.constants.iconExtension,
+                max: data.maxCount,
+                displayNeedsUpdate: true
+            });
+        }
+
+        console.debug("Loaded " + this.techTypeCount + " Building Types");
+    };
+
+    instance.update = function(delta) {
+        if (this.updatePerSecondProduction === true) {
+            this.updateProduction();
+        }
+    };
+
+    instance.save = function(data) {
+        data.buildings = { v: this.dataVersion, i: {}};
+        for(var key in this.entries) {
+            data.buildings.i[key] = this.entries[key].current;
+        }
+    };
+
+    instance.load = function(data) {
+        if(data.buildings) {
+            if(data.buildings.v && data.buildings.v === this.dataVersion) {
+                for(var id in data.buildings.i) {
+                    if(this.entries[id]) {
+                        this.constructBuildings(id, data.buildings.i[id]);
+                    }
+                }
+            }
+        }
+    };
+
+    instance.constructBuildings = function(id, count) {
+        // Add the buildings and clamp to the maximum
+        var newValue = Math.floor(this.entries[id].current + count);
+        this.entries[id].current = Math.min(newValue, this.entries[id].max);
+        this.entries[id].displayNeedsUpdate = true;
+        this.updatePerSecondProduction = true;
+    };
+
+    instance.destroyBuildings = function(id, count) {
+        // Remove the buildings and ensure we can not go below 0
+        var newValue = Math.floor(this.entries[id].current - count);
+        this.entries[id].current = Math.max(newValue, 0);
+        this.entries[id].displayNeedsUpdate = true;
+        this.updatePerSecondProduction = true;
+    };
+
+    instance.unlock = function(id) {
+        this.entries[id].unlocked = true;
+        this.entries[id].displayNeedsUpdate = true;
+    };
+
+    instance.updateProduction = function() {
+        for(var id in this.entries) {
+            var data = this.entries[id];
+            if(data.current == 0) {
+                // Nothing to be done
+                continue;
+            }
+
+            var buildingData = this.entries[id];
+            if (!buildingData.resource) {
+                continue;
+            }
+
+            var baseValue = data.current * buildingData.perSecond;
+            Game.resources.setPerSecondProduction(buildingData.resource, baseValue);
+        }
+
+        this.updatePerSecondProduction = false;
+    };
+
+    instance.getBuildingData = function(id) {
+        return this.entries[id];
+    };
+
+    return instance;
+}());</script>
+	<!-- building.js -->
+<script type="text/javascript">Game.buildingData = (function () {
+
+    var instance = {};
+
+    var baseProducerBuilding = {
+        type: BUILDING_TYPE.PRODUCER,
+        unlocked: false,
+        maxCount: Number.MAX_VALUE,
+        costType: COST_TYPE.FIXED
+    };
+
+    // Energy
+    instance.energyT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Charcoal Engine',
+        desc: 'Burns Charcoal to produce a steady source of Energy.',
+        resource: 'energy',
+        resourcePerSecond: {
+            'energy': 2,
+            'charcoal': -1
+        },
+        cost: {
+            'metal': 50,
+            'gem': 25
+        }
+    });
+
+    instance.energyT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Solar Panel',
+        desc: 'Gains Energy slowly from the sun without using any resources.',
+        resource: 'energy',
+        resourcePerSecond: {
+            'energy': 1.5
+        },
+        cost: {
+            'metal': 30,
+            'gem': 35
+        }
+    });
+
+    instance.energyT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Methane Power Station',
+        desc: 'Burn powerful methane from Venus to satisfy all your power needs.',
+        resource: 'energy',
+        resourcePerSecond: {
+            'energy': 23,
+            'methane': -6
+        },
+        cost: {
+            'lunarite': 110,
+            'titanium': 90
+        }
+    });
+
+    instance.energyT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Nuclear Power Station',
+        desc: 'Uses fission to create large amounts of power.',
+        resource: 'energy',
+        resourcePerSecond: {
+            'energy': 153,
+            'uranium': -7
+        },
+        cost: {
+            'lunarite': 20000,
+            'titanium': 10000
+        }
+    });
+
+    instance.energyT5 = $.extend({}, baseProducerBuilding, {
+        name: 'Magmatic Dynamo',
+        desc: 'The Magmatic Dynamo is a method of producing power by using lava as a fuel. Because of the extreme temperature of lava, a lot of Energy can be produced at once.',
+        resource: 'energy',
+        resourcePerSecond: {
+            'energy': 191,
+            'lava': -11
+        },
+        cost: {
+            'lunarite': 25000,
+            'gem': 30000,
+            'silver': 20000
+        }
+    });
+
+    instance.energyT6 = $.extend({}, baseProducerBuilding, {
+        name: 'Fusion Reactor',
+        desc: 'In a fusion reaction, Energy is released when two light atomic nuclei are fused together to form one heavier atom. This is the same reaction that occurs in stars and produces a lot of power.',
+        resource: 'energy',
+        resourcePerSecond: {
+            'energy': 273,
+            'hydrogen': -10,
+            'helium': -10
+        },
+        cost: {
+            'lunarite': 30000,
+            'titanium': 20000,
+            'silicon': 15000
+        }
+    });
+
+    // Plasma
+    instance.plasmaT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Super-Heater',
+        desc: 'The Super-Heater throws electricity at Hydrogen to turn it into a plasmatic substance.',
+        resource: 'plasma',
+        resourcePerSecond: {
+            'energy': -1000,
+            'hydrogen': -10,
+            'plasma': 1
+        },
+        cost: {
+            'lunarite': 75000,
+            'gem': 68000,
+            'silicon': 59000
+        }
+    });
+
+    instance.plasmaT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Plasmatic Pit',
+        desc: 'This contraption converts Helium into Plasma through firing intensive energy bolts at the gas cloud.',
+        resource: 'plasma',
+        resourcePerSecond: {
+            'energy': -8500,
+            'helium': -80,
+            'plasma': 10
+        },
+        cost: {
+            'lunarite': 810000,
+            'silicon': 720000,
+            'meteorite': 970
+        }
+    });
+
+    instance.plasmaT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Electron Bath',
+        desc: 'Bathing in Electrons. What could go wrong?',
+        resource: 'plasma',
+        resourcePerSecond: {
+            'energy': -15000,
+            'helium': -100,
+            'hydrogen': -100,
+            'plasma': 140
+        },
+        cost: {
+            'lunarite': 6200000,
+            'silicon': 5900000,
+            'meteorite': 12100
+        }
+    });
+
+    // Uranium
+    instance.uraniumT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Grinder',
+        desc: 'Pulverizes Uranium for easy transportation out of deep mineshafts.',
+        resource: 'uranium',
+        resourcePerSecond: {
+            'uranium': 1
+        },
+        cost: {
+            'lunarite': 4000,
+            'titanium': 2000,
+            'gold': 2000
+        }
+    });
+
+    instance.uraniumT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Cubic Teleposer',
+        desc: 'This teleposes blocks of rock from far underground to the surface so that Uranium can be mined more easily.',
+        resource: 'uranium',
+        resourcePerSecond: {
+            'energy': -40,
+            'uranium': 9
+        },
+        cost: {
+            'lunarite': 10000,
+            'uranium': 80,
+            'oil': 10000
+        }
+    });
+
+    instance.uraniumT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Uranium Enricher',
+        desc: 'The Enricher increases the quality of uranium mined and thus allows more of the uranium in rocks to be used in your company.',
+        resource: 'uranium',
+        resourcePerSecond: {
+            'energy': -180,
+            'uranium': 61
+        },
+        cost: {
+            'lunarite': 21700,
+            'titanium': 23000,
+            'silicon': 13500
+        }
+    });
+
+    instance.uraniumT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Yellowcake Recycler',
+        desc: 'Recycles used-up Uranium to provide the resources with a second use. This greatly increases the amount of Uranium you can use per second.',
+        resource: 'uranium',
+        resourcePerSecond: {
+            'energy': -436,
+            'uranium': 235
+        },
+        cost: {
+            'lunarite': 93100,
+            'methane': 47000,
+            'meteorite': 830
+        }
+    });
+
+    // Lava
+    instance.lavaT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Heat Resistant Crucible',
+        desc: 'You can use a modified crucible to pick up lava and to store it for later use.',
+        resource: 'lava',
+        resourcePerSecond: {
+            'lava': 1
+        },
+        cost: {
+            'lunarite': 4000,
+            'gem': 7000
+        }
+    });
+
+    instance.lavaT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Lava Extractor',
+        desc: 'This extracts lava from volcanoes automatically and quickly.',
+        resource: 'lava',
+        resourcePerSecond: {
+            'energy': -58,
+            'lava': 7
+        },
+        cost: {
+            'lunarite': 16000,
+            'titanium': 14000,
+            'silicon': 6000
+        }
+    });
+
+    instance.lavaT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Igneous Extruder',
+        desc: 'Instead of going out and finding lava, it can be more convenient to make it yourself with heat and pressure.',
+        resource: 'lava',
+        resourcePerSecond: {
+            'energy': -237,
+            'lava': 43
+        },
+        cost: {
+            'lunarite': 69000,
+            'titanium': 57000,
+            'silicon': 39000
+        }
+    });
+
+    instance.lavaT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Volcanic Veluptuator',
+        desc: 'A melting pot of misery, pouring lava out from mined rock.',
+        resource: 'lava',
+        resourcePerSecond: {
+            'energy': -689,
+            'lava': 187
+        },
+        cost: {
+            'lunarite': 298000,
+            'gold': 121000,
+            'meteorite': 750
+        }
+    });
+
+    /********************
+     * Earth Resources  *
+     ********************/
+
+    // Oil
+    instance.oilT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Small Pump',
+        desc: 'Build a small pump to extract Oil from the ground.',
+        resource: 'oil',
+        resourcePerSecond: {
+            'oil': 1
+        },
+        cost: {
+            'metal': 60,
+            'gem': 20
+        }
+    });
+
+    instance.oilT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Pumpjack',
+        desc: 'Pumpjacks are much bigger than small pumps and produce Oil on an industrial scale but they require a lot of Energy.',
+        resource: 'oil',
+        resourcePerSecond: {
+            'energy': -4,
+            'oil': 10
+        },
+        cost: {
+            'metal': 250,
+            'gem': 80,
+            'oil': 50
+        }
+    });
+
+    instance.oilT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Oil Field',
+        desc: 'Oil Fields are large open spaces, usually found in deserts where vast oil wells can be found under the ground.',
+        resource: 'oil',
+        resourcePerSecond: {
+            'energy': -12,
+            'oil': 63
+        },
+        cost: {
+            'lunarite': 2400,
+            'titanium': 2700,
+            'silicon': 3900
+        }
+    });
+
+    instance.oilT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Offshore Rig',
+        desc: 'Offshore Rigs are megastructures floating in the oceans, extracting Oil from under the sea-beds.',
+        resource: 'oil',
+        resourcePerSecond: {
+            'energy': -44,
+            'oil': 246
+        },
+        cost: {
+            'lunarite': 19400,
+            'titanium': 16800,
+            'meteorite': 760
+        }
+    });
+
+    // Metal
+    instance.metalT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Miner',
+        desc: 'Build a pickaxe for your miner.',
+        resource: 'metal',
+        unlocked: true,
+        resourcePerSecond: {
+            'metal': 1
+        },
+        cost: {
+            'metal': 10,
+            'wood': 5
+        }
+    });
+
+    instance.metalT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Heavy Drill',
+        desc: 'Heavy Drills mine Metal at mass.',
+        resource: 'metal',
+        resourcePerSecond: {
+            'energy': -2,
+            'metal': 8
+        },
+        cost: {
+            'metal': 160,
+            'gem': 60,
+            'oil': 50
+        }
+    });
+
+    instance.metalT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Giga Drill',
+        desc: 'Giga Drills extract Metal at colossal speeds.',
+        resource: 'metal',
+        resourcePerSecond: {
+            'energy': -9,
+            'metal': 108
+        },
+        cost: {
+            'lunarite': 2800,
+            'gem': 3400,
+            'silicon': 4100
+        }
+    });
+
+    instance.metalT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Quantum Drill',
+        desc: 'Quantum Drills bend the space-time continuum to get metal faster than physically possible.',
+        resource: 'metal',
+        resourcePerSecond: {
+            'energy': -24,
+            'metal': 427
+        },
+        cost: {
+            'lunarite': 29000,
+            'gold': 18700,
+            'meteorite': 900
+        }
+    });
+
+    // Gem
+    instance.gemT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Gem Miner',
+        desc: 'Build an improved pickaxe to mine Gems.',
+        resource: 'gem',
+        unlocked: true,
+        resourcePerSecond: {
+            'gem': 1
+        },
+        cost: {
+            'metal': 15,
+            'gem': 10
+        }
+    });
+
+    instance.gemT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Advanced Drill',
+        desc: 'Advanced Drills mine gem at mass. Because of the toughness of the drill needed it is slower than the heavy drill.',
+        resource: 'gem',
+        resourcePerSecond: {
+            'energy': -2,
+            'gem': 4
+        },
+        cost: {
+            'metal': 120,
+            'gem': 200,
+            'oil': 60
+        }
+    });
+
+    instance.gemT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Diamond Encrusted Drill',
+        desc: 'The Diamond Encrusted Drill is one of the strongest drills in the solar system, and as such, can collect Gems faster than anything before it.',
+        resource: 'gem',
+        resourcePerSecond: {
+            'energy': -15,
+            'gem': 89
+        },
+        cost: {
+            'lunarite': 3400,
+            'gem': 8000,
+            'silicon': 4500
+        }
+    });
+
+    instance.gemT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Carbyne Drill',
+        desc: 'Carbyne Drills one of the strongest drills in the solar system, and as such, can collect Gems faster than anything before it.',
+        resource: 'gem',
+        resourcePerSecond: {
+            'energy': -40,
+            'gem': 358
+        },
+        cost: {
+            'lunarite': 21000,
+            'gem': 27000,
+            'meteorite': 800
+        }
+    });
+
+    // Charcoal
+    instance.charcoalT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Woodburner',
+        desc: 'Build a shovel for your woodburner.',
+        resource: 'charcoal',
+        resourcePerSecond: {
+            'wood': -2,
+            'charcoal': 1
+        },
+        cost: {
+            'metal': 10,
+            'wood': 5
+        }
+    });
+
+    instance.charcoalT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Furnace',
+        desc: 'Furnaces use electric heaters to produce heat to turn Wood into Charcoal. Because of the increased heat, the process is more efficient.',
+        resource: 'charcoal',
+        resourcePerSecond: {
+            'energy': -3,
+            'wood': -6,
+            'charcoal': 4
+        },
+        cost: {
+            'metal': 80,
+            'wood': 40,
+            'oil': 100
+        }
+    });
+
+    instance.charcoalT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Industrial Kiln',
+        desc: 'These large kilns are much for effective than previous methods of creating charcoal and use less wood to make the same amount as a furnace.',
+        resource: 'charcoal',
+        resourcePerSecond: {
+            'energy': -13,
+            'wood': -56,
+            'charcoal': 53
+        },
+        cost: {
+            'lunarite': 3500,
+            'gem': 6200,
+            'silicon': 3800
+        }
+    });
+
+    instance.charcoalT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Forest Fryer',
+        desc: 'Forests? What forests?',
+        resource: 'charcoal',
+        resourcePerSecond: {
+            'energy': -34,
+            'wood': -148,
+            'charcoal': 210
+        },
+        cost: {
+            'lunarite': 15800,
+            'lava': 12500,
+            'meteorite': 560
+        }
+    });
+
+    // Wood
+    instance.woodT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Woodcutter',
+        desc: 'Build an axe for your woodcutter.',
+        resource: 'wood',
+        unlocked: true,
+        resourcePerSecond: {
+            'wood': 1
+        },
+        cost: {
+            'metal': 10,
+            'wood': 5
+        }
+    });
+
+    instance.woodT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Laser Cutter',
+        desc: 'Laser Cutters slice trees (and fingers) quicker than axes and produce a lot more wood.',
+        resource: 'wood',
+        resourcePerSecond: {
+            'energy': -4,
+            'wood': 6
+        },
+        cost: {
+            'metal': 50,
+            'gem': 90,
+            'oil': 40
+        }
+    });
+
+    instance.woodT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Mass Deforester',
+        desc: 'This machine is the reason we\'re losing our rainforests. At least we get lots of wood!',
+        resource: 'wood',
+        resourcePerSecond: {
+            'energy': -16,
+            'wood': 74
+        },
+        cost: {
+            'lunarite': 3000,
+            'titanium': 2700,
+            'silicon': 2500
+        }
+    });
+
+    instance.woodT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Biomass Infuser',
+        desc: 'Creates Wood using old, useless materials found everywhere on Earth by crushing them and packing what remains as densely as possible until it can be used as Wood again.',
+        resource: 'wood',
+        resourcePerSecond: {
+            'energy': -43,
+            'wood': 297
+        },
+        cost: {
+            'lunarite': 16000,
+            'oil': 31200,
+            'meteorite': 490
+        }
+    });
+
+    // Silicon
+    instance.siliconT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Empowered Blowtorch',
+        desc: 'This type of blowtorch instantly turns sand into Silicon, but only on a small scale. To make it, extraterrestrial resources are required.',
+        resource: 'silicon',
+        resourcePerSecond: {
+            'silicon': 1
+        },
+        cost: {
+            'lunarite': 150,
+            'titanium': 30
+        }
+    });
+
+    instance.siliconT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Seaside Scorcher',
+        desc: 'This tool almost melts parts of beaches to get silicon at a larger scale.',
+        resource: 'silicon',
+        resourcePerSecond: {
+            'energy': -18,
+            'silicon': 9
+        },
+        cost: {
+            'lunarite': 500,
+            'gem': 1200,
+            'oil': 1600
+        }
+    });
+
+    instance.siliconT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Beach Annihilator',
+        desc: 'This weapon of mass destruction has been re-labelled and now hovers above coast-lines, or what is now left of them.',
+        resource: 'silicon',
+        resourcePerSecond: {
+            'energy': -53,
+            'silicon': 40
+        },
+        cost: {
+            'lunarite': 3000,
+            'gem': 8300,
+            'silver': 2400
+        }
+    });
+
+    instance.siliconT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Desert Destroyer',
+        desc: 'This large ship orbits around the planet, focused in the Sahara Desert, tearing up sand from Earth and turning it into Silicon under intense heat.',
+        resource: 'silicon',
+        resourcePerSecond: {
+            'energy': -138,
+            'silicon': 157
+        },
+        cost: {
+            'lunarite': 20000,
+            'silicon': 17700,
+            'meteorite': 400
+        }
+    });
+
+    /******************************
+     * Inner Planetary Resources  *
+     ******************************/
+
+    // Lunarite
+    instance.lunariteT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Native Moon Worker',
+        desc: 'Bribe local workers to mine your Lunarite.',
+        resource: 'lunarite',
+        resourcePerSecond: {
+            'lunarite': 1
+        },
+        cost: {
+            'gem': 500
+        }
+    });
+
+    instance.lunariteT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Low-Gravity Drill',
+        desc: 'These drills practically float!',
+        resource: 'lunarite',
+        resourcePerSecond: {
+            'energy': -20,
+            'lunarite': 10
+        },
+        cost: {
+            'metal': 1000,
+            'gem': 600,
+            'oil': 400
+        }
+    });
+
+    instance.lunariteT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Moon Quarry',
+        desc: 'This quarry tears up the surface of the moon so much that it can be seen from Earth.',
+        resource: 'lunarite',
+        resourcePerSecond: {
+            'energy': -70,
+            'lunarite': 53
+        },
+        cost: {
+            'lunarite': 8000,
+            'gem': 5000,
+            'silicon': 3500
+        }
+    });
+
+    instance.lunariteT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Planetary Excavator',
+        desc: 'This large machine dives deep into the Earth to find large pools of Lunarite found near the core. This is originally where the metal on the Moon comes from.',
+        resource: 'lunarite',
+        resourcePerSecond: {
+            'energy': -182,
+            'lunarite': 207
+        },
+        cost: {
+            'titanium': 45000,
+            'ice': 37000,
+            'meteorite': 500
+        }
+    });
+
+    // Methane
+    instance.methaneT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Vacuum Cleaner',
+        desc: 'Sucks in methane and cleans the planet at the same time!',
+        resource: 'methane',
+        resourcePerSecond: {
+            'methane': 1
+        },
+        cost: {
+            'lunarite': 50
+        }
+    });
+
+    instance.methaneT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Suction Excavator',
+        desc: 'Sucks more than anything!',
+        resource: 'methane',
+        resourcePerSecond: {
+            'energy': -16,
+            'methane': 8
+        },
+        cost: {
+            'lunarite': 10000,
+            'gem': 800,
+            'oil': 600
+        }
+    });
+
+    instance.methaneT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Space Cow Plantation',
+        desc: 'These hold cows genetically moodified to produce methane constantly',
+        resource: 'methane',
+        resourcePerSecond: {
+            'energy': -49,
+            'methane': 37
+        },
+        cost: {
+            'lunarite': 10000,
+            'titanium': 9000,
+            'silicon': 4100
+        }
+    });
+
+    instance.methaneT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Hydrothermal Vent',
+        desc: 'Collect gas from deep sea vents on the ocean floor of Titan.',
+        resource: 'methane',
+        resourcePerSecond: {
+            'energy': -132,
+            'methane': 149
+        },
+        cost: {
+            'lunarite': 52000,
+            'helium': 47000,
+            'meteorite': 390
+        }
+    });
+
+    // Titanium
+    instance.titaniumT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Explorer',
+        desc: 'Hire explorers to search for Titanium on the surface, uncovered by winds on Mars.',
+        resource: 'titanium',
+        resourcePerSecond: {
+            'titanium': 1
+        },
+        cost: {
+            'gem': 1000
+        }
+    });
+
+    instance.titaniumT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Lunarite Drill',
+        desc: 'These Lunarite Drills are extremely powerful, needed to mine out Titanium from inside Mars\' crust.',
+        resource: 'titanium',
+        resourcePerSecond: {
+            'energy': -13,
+            'titanium': 9
+        },
+        cost: {
+            'lunarite': 200,
+            'gem': 800,
+            'oil': 1000
+        }
+    });
+
+    instance.titaniumT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Penta-Drill',
+        desc: 'This is a mining machine modified to have 5 drills on its face. This allows for a massive increase in resources gained per second.',
+        resource: 'titanium',
+        resourcePerSecond: {
+            'energy': -46,
+            'titanium': 49
+        },
+        cost: {
+            'lunarite': 14000,
+            'gem': 11000,
+            'silicon': 5600
+        }
+    });
+
+    instance.titaniumT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Drill of Titans',
+        desc: 'This mighty drill is said to have been wielded by Titans themselves, many milennia ago.',
+        resource: 'titanium',
+        resourcePerSecond: {
+            'energy': -123,
+            'titanium': 197
+        },
+        cost: {
+            'lunarite': 63000,
+            'gold': 27000,
+            'meteorite': 600
+        }
+    });
+
+    // Gold
+    instance.goldT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Rocket Droid',
+        desc: 'Powered by Methane, this droid scouts the asteroids for gold deposits.',
+        resource: 'gold',
+        resourcePerSecond: {
+            'gold': 1
+        },
+        cost: {
+            'gem': 200,
+            'methane': 50
+        }
+    });
+
+    instance.goldT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Asteroid Destroyer',
+        desc: 'Mines through asteroids to find Gold. It is much more effective than the simple droid.',
+        resource: 'gold',
+        resourcePerSecond: {
+            'energy': -19,
+            'gold': 8
+        },
+        cost: {
+            'lunarite': 500,
+            'gem': 1500,
+            'oil': 1000
+        }
+    });
+
+    instance.goldT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Death Star Jr',
+        desc: 'That\'s no moon! That\'s a Space Station! This cuts through asteroids to expose all of the Gold in the centers.',
+        resource: 'gold',
+        resourcePerSecond: {
+            'energy': -81,
+            'gold': 51
+        },
+        cost: {
+            'lunarite': 17000,
+            'silver': 11500,
+            'silicon': 8200
+        }
+    });
+
+    instance.goldT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Chronal Actuator',
+        desc: 'Speeds up time through quantum physics in order to produce even more Gold.',
+        resource: 'gold',
+        resourcePerSecond: {
+            'energy': -223,
+            'gold': 211
+        },
+        cost: {
+            'lunarite': 61000,
+            'helium': 15700,
+            'meteorite': 600
+        }
+    });
+
+    // Silver
+    instance.silverT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Scout Ship',
+        desc: 'The Scout Ship searches through the asteroid field for pieces of silver embedded in asteroids.',
+        resource: 'silver',
+        resourcePerSecond: {
+            'silver': 1
+        },
+        cost: {
+            'lunarite': 100,
+            'titanium': 20
+        }
+    });
+
+    instance.silverT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Interplanetary Laser',
+        desc: 'Cuts through asteroids to find silver deposits in their cores.',
+        resource: 'silver',
+        resourcePerSecond: {
+            'energy': -24,
+            'silver': 13
+        },
+        cost: {
+            'lunarite': 350,
+            'gem': 900,
+            'oil': 1200
+        }
+    });
+
+    instance.silverT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Big Bertha',
+        desc: 'This large, space drill, named after the World War One Howitzer built almost a milienia ago, is a silver seeking machine specially designed for mining asteroids.',
+        resource: 'silver',
+        resourcePerSecond: {
+            'energy': -65,
+            'silver': 53
+        },
+        cost: {
+            'lunarite': 19500,
+            'silver': 18200,
+            'silicon': 11000
+        }
+    });
+
+    instance.silverT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Atomic Cannon',
+        desc: 'This powerful cannon orbits Neptune and can atomise the surface of asteroids, revealing the silver within.',
+        resource: 'silver',
+        resourcePerSecond: {
+            'energy': -170,
+            'silver': 208
+        },
+        cost: {
+            'lunarite': 85100,
+            'oil': 93800,
+            'meteorite': 520
+        }
+    });
+
+    /******************************
+     * Outer Planetary Resources  *
+     ******************************/
+
+    // Hydrogen
+    instance.hydrogenT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Hydrogen Collector',
+        desc: 'This collector travels around Jupiter seeking Hydrogen to store to bring back to Earth.',
+        resource: 'hydrogen',
+        resourcePerSecond: {
+            'hydrogen': 1
+        },
+        cost: {
+            'lunarite': 6000,
+            'titanium': 4800
+        }
+    });
+
+    instance.hydrogenT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Gaseous Magnet',
+        desc: 'The magnet attracts the Hydrogen to it to increase the amount collected per second.',
+        resource: 'hydrogen',
+        resourcePerSecond: {
+            'energy': -63,
+            'hydrogen': 5
+        },
+        cost: {
+            'lunarite': 10800,
+            'titanium': 9600,
+            'silicon': 6600
+        }
+    });
+
+    instance.hydrogenT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Electrolytic Cell',
+        desc: 'These are made here on Earth and can turn water into hydrogen with a constant supply of Energy.',
+        resource: 'hydrogen',
+        resourcePerSecond: {
+            'energy': -234,
+            'hydrogen': 28
+        },
+        cost: {
+            'silver': 37200,
+            'gold': 34200,
+            'silicon': 25800
+        }
+    });
+
+    instance.hydrogenT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Hindenburg Excavation',
+        desc: 'Somehow, it works.',
+        resource: 'hydrogen',
+        resourcePerSecond: {
+            'energy': -613,
+            'hydrogen': 113
+        },
+        cost: {
+            'lunarite': 172000,
+            'methane': 134000,
+            'meteorite': 710
+        }
+    });
+
+    // Helium
+    instance.heliumT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Helium Drone',
+        desc: 'The Helium Drone scouts out the area on Saturn and picks out spots high in Helium which are then mined slowly by it.',        resource: 'helium',
+        resourcePerSecond: {
+            'helium': 1
+        },
+        cost: {
+            'lunarite': 8400,
+            'titanium': 6000
+        }
+    });
+
+    instance.heliumT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Helium Tanker',
+        desc: 'This huge tanker holds large amounts of Helium and transports it from Saturn to Earth through the vacuum of space.',
+        resource: 'helium',
+        resourcePerSecond: {
+            'energy': -72,
+            'helium': 11
+        },
+        cost: {
+            'lunarite': 12600,
+            'titanium': 10200,
+            'silicon': 8400
+        }
+    });
+
+    instance.heliumT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Morphic Compressor',
+        desc: 'The Compressor packs helium densely into a small space so that it can be easily transported back to Earth.',
+        resource: 'helium',
+        resourcePerSecond: {
+            'energy': -248,
+            'helium': 57
+        },
+        cost: {
+            'lunarite': 63000,
+            'titanium': 43800,
+            'silicon': 35400
+        }
+    });
+
+    instance.heliumT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Gas Giant Skimmer',
+        desc: 'Flying into Gas Giants\' atmospheres with a big bucket is the best plan we\'ve had yet!',
+        resource: 'helium',
+        resourcePerSecond: {
+            'energy': -670,
+            'helium': 232
+        },
+        cost: {
+            'lunarite': 255000,
+            'titanium': 173000,
+            'meteorite': 770
+        }
+    });
+
+    // Ice
+    instance.iceT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Ice Pickaxe',
+        desc: 'The Ice Pickaxe is the simplest way of mining frozen water, and although it is the cheapest, it is the slowest.',
+        resource: 'ice',
+        resourcePerSecond: {
+            'ice': 1
+        },
+        cost: {
+            'lunarite': 17800,
+            'gem': 19300
+        }
+    });
+
+    instance.iceT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Ice Drill',
+        desc: 'The Ice Drill is more effective than the Pickaxe and gains much more Ice every second. However, it does use electricity.',
+        resource: 'ice',
+        resourcePerSecond: {
+            'energy': -83,
+            'ice': 9
+        },
+        cost: {
+            'lunarite': 23900,
+            'titanium': 21200,
+            'silicon': 19600
+        }
+    });
+
+    instance.iceT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Ocean Freezer',
+        desc: 'With advanced technology, you are now able to turn Earth\'s water into high-quality Ice, previously only found on Pluto.',
+        resource: 'ice',
+        resourcePerSecond: {
+            'energy': -397,
+            'ice': 65
+        },
+        cost: {
+            'lunarite': 117000,
+            'titanium': 86000,
+            'silicon': 73000
+        }
+    });
+
+    instance.iceT4 = $.extend({}, baseProducerBuilding, {
+        name: 'Mr Freeze',
+        desc: 'This robot is the coolest guy in the solar system.',
+        resource: 'ice',
+        resourcePerSecond: {
+            'energy': -1135,
+            'ice': 278
+        },
+        cost: {
+            'wood': 379000,
+            'helium': 14000,
+            'meteorite': 1500
+        }
+    });
+
+    // Meteorite
+    instance.meteoriteT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Meteorite Printer',
+        desc: 'Contruct an automated way of producing meteorite without you having to do anything.',
+        resource: 'meteorite',
+        resourcePerSecond: {
+            'plasma': -3,
+            'meteorite': 1
+        },
+        cost: {
+            'lunarite': 100000,
+            'silicon': 60000
+        }
+    });
+
+    instance.meteoriteT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Meteorite Web',
+        desc: 'The Meteorite Web uses nano-fibres made while submerged in highly radioactive liquids to become strong enough to physically catch meteors from the Asteroid Belt. Plasma is required to refine the asteroids into Meteorite Ore, which can be usable.',
+        resource: 'meteorite',
+        resourcePerSecond: {
+            'plasma': -21,
+            'meteorite': 8
+        },
+        cost: {
+            'lunarite': 940000,
+            'uranium': 490000,
+            'silicon': 510000
+        }
+    });
+
+    // Research
+    instance.scienceT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Home Science Kit',
+        desc: 'Build a small laboratory of your very own to start producing science. Each one produces 0.1 science per second.',
+        resource: 'science',
+        resourcePerSecond: {
+            'science': 0.1
+        },
+        cost: {
+            'metal': 20,
+            'gem': 15,
+            'wood': 10
+        }
+    });
+
+    instance.scienceT2 = $.extend({}, baseProducerBuilding, {
+        name: 'High School Science',
+        desc: 'Build a more effective laboratory to continue your quest into the realm of science at a significantly faster speed. Each one produces 1 science per second.',
+        resource: 'science',
+        resourcePerSecond: {
+            'science': 1
+        },
+        cost: {
+            'metal': 1000,
+            'gem': 200,
+            'wood': 500
+        }
+    });
+
+    instance.scienceT3 = $.extend({}, baseProducerBuilding, {
+        name: 'University Laboratory',
+        desc: 'Build an even better version of the old laboratory to further your exploration of the realm of science. Each one produces 10 science per second.',
+        resource: 'science',
+        resourcePerSecond: {
+            'science': 10
+        },
+        cost: {
+            'metal': 17000,
+            'gem': 4700,
+            'wood': 9600
+        }
+    });
+
+    // Solar System
+    instance.rocketFuelT1 = $.extend({}, baseProducerBuilding, {
+        name: 'Chemical Plant',
+        desc: 'Chemical plants are used to make rocket fuel automatically.',
+        resource: 'rocketFuel',
+        resourcePerSecond: {
+            'rocketFuel': 0.2
+        },
+        cost: {
+            'metal': 1000,
+            'gem': 750,
+            'wood': 500
+        }
+    });
+
+    instance.rocketFuelT2 = $.extend({}, baseProducerBuilding, {
+        name: 'Oxidisation Chamber',
+        desc: 'Oxidisation Chambers make rocket fuel faster and more efficiently than chemical plants.',
+        resource: 'rocketFuel',
+        resourcePerSecond: {
+            'rocketFuel': 1.5
+        },
+        cost: {
+            'metal': 12000,
+            'gem': 8300,
+            'wood': 6800
+        }
+    });
+
+    instance.rocketFuelT3 = $.extend({}, baseProducerBuilding, {
+        name: 'Hydrazine Catalyst',
+        desc: 'These speed up the chemical reactions needed to make rocket fuel by using greenhouse gases such as methane.',
+        resource: 'rocketFuel',
+        resourcePerSecond: {
+            'rocketFuel': 20
+        },
+        cost: {
+            'titanium': 140000,
+            'silicon': 96300,
+            'gold': 78600
+        }
+    });
+    
+    return instance;
+}());</script>
+	<!-- data/buildingData.js -->
+<script type="text/javascript">Game.tech = (function(){
+
+    var instance = {};
+
+    instance.dataVersion = 2;
+    instance.entries = {};
+    instance.techTypeCount = 0;
+
+    instance.initialise = function() {
+        Game.techUI.initialise();
+        for (var id in Game.techData) {
+            var data = this.initTech(id);
+            this.techTypeCount++;
+            this.entries[id] = data;
+
+            Game.techUI.addTech(data);
+        }
+        console.debug("Loaded " + this.techTypeCount + " Tech Types");
+    };
+
+    instance.initTech = function(id) {
+        // using extend to create a new object and leave the defaults unchanged
+        var data = jQuery.extend({}, Game.techData[id]);
+        data.setId(id);
+        return data;
+    };
+
+    instance.reset = function() {
+        for (var id in Game.techData) {
+            var data = this.initTech(id);
+            this.entries[id] = data;
+
+            Game.techUI.replaceTech(data);
+        }
+        refreshResearches();
+        console.debug("Loaded " + this.techTypeCount + " Tech Types");
+    };
+
+    instance.update = function(delta) {};
+
+    instance.save = function(data) {
+        data.tech = { v: this.dataVersion, i: {}};
+        for(var key in this.entries) {
+            data.tech.i[key] = {};
+            data.tech.i[key].current = this.entries[key].current;
+            data.tech.i[key].unlocked = this.entries[key].unlocked;
+        }
+    };
+
+    instance.load = function(data) {
+        if (data.tech && data.tech.v && data.tech.i) {
+            if (data.tech.v >= 2) {
+                this.loadV2(data);
+            } else if (data.tech.v === 1) {
+                this.loadV1(data);
+            }
+        }
+        var tech = Game.tech.getTechData('energyEfficiencyResearch');
+        if (tech.current === tech.maxLevel) {
+            var child = document.getElementById("energyEffButton");
+            if (child !== null) {
+                child.parentNode.removeChild(child);
+            }
+        }
+    };
+
+    // handle loading a save with dataVersion 1
+    instance.loadV1 = function(data) {
+        // the new tech data matches the old ids stored in the arrays available and researched
+        // anything that was in available before can be considered unlocked
+        for (var id in data.available) {
+            if (typeof this.entries[data.available[id]] !== 'undefined') {
+                this.entries[data.available[id]].unlocked = true;
+            }
+        }
+        // anything that was in researched before can be considered purchased
+        for (id in data.researched) {
+            if (typeof this.entries[data.researched[id]] !== 'undefined') {
+                this.entries[data.researched[id]].current = 1;
+            }
+        }
+        for (id in data.tech.i) {
+            if (this.entries[id] && !isNaN(data.tech.i[id]) && data.tech.i[id] > 0) {
+                this.gainTech(id, data.tech.i[id]);
+                this.entries[id].unlocked = true;
+            }
+        }
+    };
+
+    // handle loading a save with dataVersion 2 or higher
+    instance.loadV2 = function(data) {
+        for (var id in data.tech.i) {
+            if (typeof this.entries[id] !== 'undefined') {
+                if (typeof data.tech.i[id].current !== 'undefined' && data.tech.i[id].current > 0) {
+                    this.entries[id].current = 0;
+                    this.gainTech(id, data.tech.i[id].current);
+                    // we can assume that the tech is unlocked if it has been purchased
+                    this.entries[id].unlocked = true;
+                } else if (typeof data.tech.i[id].unlocked !== 'undefined') {
+                    this.entries[id].unlocked = data.tech.i[id].unlocked;
+                }
+            }
+        }
+    };
+
+    instance.unlockTech = function(id) {
+        var tech = this.getTechData(id);
+        if (typeof tech !== 'undefined') {
+            tech.unlocked = true;
+        }
+    };
+
+    // return true if the tech is purchased successfully, false otherwise
+    instance.buyTech = function(id, count) {
+        var tech = this.getTechData(id);
+        if (typeof tech === 'undefined') {
+            return false;
+        }
+
+        // ensure a valid value for count
+        if(isNaN(count) || count === undefined) {
+            count = 1;
+        }
+        // if there's a max level defined then the count may need to be clamped
+        if (tech.maxLevel > 0) {
+            count = Math.min(tech.maxLevel - tech.current, count);
+            if (count <= 0) {
+                // the tech is at or above max level, can't buy it
+                return false;
+            }
+        }
+
+        // create a new object for cost to avoid reference issues
+        var cost = {};
+        if (tech.costType === COST_TYPE.FIXED) {
+            if (tech.current > 0 || count > 1) {
+                // this calculation could be done more elegantly with math
+                for (var resource in tech.cost) {
+                    cost[resource] = 0;
+                }
+                for (var i = 0; i < count; i++) {
+                    for (var resource in tech.cost) {
+                        cost[resource] += getCost(tech.cost[resource], tech.current + i);
+                    }
+                }
+            } else {
+                // the predefined base cost can be used
+                for (var resource in tech.cost) {
+                    cost[resource] = tech.cost[resource];
+                }
+            }
+        } else {
+            return false;
+        }
+
+        if (!this.hasResources(cost)) {
+            return false;
+        }
+
+        this.spendResources(cost);
+        this.gainTech(id, count);
+        return true;
+    };
+
+    instance.gainTech = function(id, count) {
+        this.removeTechEffect(id);
+
+        if(isNaN(count) || count === undefined) {
+            count = 1;
+        }
+
+        var newValue = Math.floor(this.entries[id].current + count);
+        var finalValue = newValue;
+        if(this.entries[id].maxLevel > 0) {
+            // There is a max level on this tech, clamp so we don't exceed
+            finalValue = Math.min(newValue, this.entries[id].maxLevel)
+        }
+
+        this.entries[id].current = finalValue;
+
+        this.applyTechEffect(id);
+    };
+
+    instance.removeTech = function(id, count) {
+        this.removeTechEffect(id);
+
+        if(isNaN(count) || count === undefined) {
+            count = 1;
+        }
+
+        // Remove the tech and ensure we can not go below 0
+        var newValue = Math.floor(this.entries[id].current - count);
+        this.entries[id].current = Math.max(newValue, 0);
+
+        this.applyTechEffect(id);
+    };
+
+    instance.getTechData = function(id) {
+        return this.entries[id];
+    };
+
+    instance.removeTechEffect = function(id) {
+        var data = this.entries[id];
+        if(typeof data.remove !== 'undefined') {
+            data.remove(data);
+        }
+    };
+
+    instance.applyTechEffect = function(id) {
+        var data = this.entries[id];
+        if(typeof data.apply !== 'undefined') {
+            data.apply(data);
+        }
+    };
+
+    instance.hasResources = function (resources) {
+        for (var resource in resources) {
+           if (window[resource] < resources[resource]) {
+               return false;
+           }
+        }
+        return true;
+    };
+
+    instance.spendResources = function(resources) {
+        for (var resource in resources) {
+            window[resource] -= resources[resource];
+        }
+    };
+
+    instance.isUnlocked = function(id) {
+        var tech = this.getTechData(id);
+        if (typeof tech !== 'undefined') {
+            return tech.unlocked;
+        }
+        return false;
+    };
+
+    instance.isPurchased = function(id) {
+        var tech = this.getTechData(id);
+        if (typeof tech !== 'undefined') {
+            return tech.current > 0;
+        }
+        return false;
+    };
+
+    instance.isMaxLevel = function(id) {
+        var tech = this.getTechData(id);
+        if (typeof tech !== 'undefined') {
+            if(id == 'energyEfficiencyResearch') return false;
+            return tech.maxLevel > 0 && tech.current >= tech.maxLevel;
+        }
+        return false;
+    };
+
+    return instance;
+}());</script>
+	<!-- tech.js -->
+<script type="text/javascript" >Game.techData = (function () {
+
+    var instance = {};
+
+    var techBase = {
+        id: null,
+        htmlId: null,
+        htmlIdCost: null,
+        htmlIdTitle: null,
+        htmlIdButton: null,
+        displayNeedsUpdate: true,
+
+        name: 'Research',
+        desc: 'Purchase to unlock something.',
+        notifyTitle: null,
+        notifyText: null,
+        buttonText: 'Unlock',
+
+        current: 0,
+        maxLevel: 1,
+        unlocked: false,
+
+        newResources: [],
+        newTechs: [],
+        newTabs: [],
+        tabAlerts: [],
+
+        setId: function(id) {
+            this.id = id;
+            this.htmlId = id;
+            this.htmlIdCost = id + 'Cost';
+            this.htmlIdTitle = id + 'Title';
+            this.htmlIdButton = id + 'Button';
+        },
+
+        getBodyElement: function() {
+            return $('#' + this.htmlId);
+        },
+        getTitleElement: function() {
+            return $('#' + this.htmlIdTitle);
+        },
+        getCostElement: function() {
+            return $('#' + this.htmlIdCost);
+        },
+        getButtonElement: function() {
+            return $('#' + this.htmlIdButton);
+        },
+
+        apply: function(self) {
+            for (var i = 0; i < this.newResources.length; i++) {
+                if (resourcesUnlocked.indexOf(this.newResources[i]) === INDEX_NONE) {
+                    resourcesUnlocked.push(this.newResources[i]);
+                }
+            }
+            for (i = 0; i < this.newTabs.length; i++) {
+                if (tabsUnlocked.indexOf(this.newTabs[i]) === INDEX_NONE) {
+                    tabsUnlocked.push(this.newTabs[i]);
+                }
+            }
+            for (i = 0; i < this.newTechs.length; i++) {
+                Game.tech.unlockTech(this.newTechs[i]);
+            }
+            if (this.onApply !== null) {
+                this.onApply();
+            }
+        },
+        // for any tech specific apply changes
+        onApply: null
+
+    };
+
+    // Researches
+    instance.unlockStorage = $.extend({}, techBase, {
+        name: 'Storage Upgrades',
+        desc: 'This will allow you to build storage upgrades to increase the maximum on the amount of resource you can have at once.',
+        buttonText: 'Unlock Storage',
+        type: TECH_TYPE.UNLOCK,
+        unlocked: true,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 5
+        },
+        newTechs: ['unlockOil'],
+        tabAlerts: ['resources']
+    });
+    
+    instance.unlockBasicEnergy = $.extend({}, techBase, {
+        name: 'Basic Energy Production',
+        desc: 'You will be able to produce power from steam engines using Charcoal made from wood in a furnace.',
+        buttonText: 'Unlock Basic Energy Production',
+        type: TECH_TYPE.UNLOCK,
+        unlocked: true,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 20
+        },
+        newResources: ['energyNav', 'charcoalNav'],
+        newTechs: ['unlockSolar', 'unlockMachines', 'upgradeEngineTech'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockOil = $.extend({}, techBase, {
+        name: 'Oil Processing',
+        desc: 'Oil used to fuel more advanced machines that gather resources and also to produce more power than basic means. Unlocking Oil Processing allows you to extract it from the ground.',
+        buttonText: 'Unlock Oil',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 30
+        },
+        newResources: ['oilNav'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockSolar = $.extend({}, techBase, {
+        name: 'Solar Panels',
+        desc: 'Solar Panels produce Energy without the need for fuel, but they do it slower than other forms of Energy production.',
+        buttonText: 'Unlock Solar Panels',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 50
+        },
+        newTechs: ['upgradeSolarTech'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockMachines = $.extend({}, techBase, {
+        name: 'Resource Machines',
+        desc: 'Resource Machines produce more resources than simple methods but require a constant supply of power to work.',
+        buttonText: 'Unlock Resource Machines',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 100
+        },
+        newTechs: ['unlockSolarSystem', 'upgradeResourceTech', 'unlockDestruction'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockDestruction = $.extend({}, techBase, {
+        name: 'Destruction of Machines',
+        desc: 'This allows you to destroy machines you have already created. It can be useful when there are more efficient methods of gaining resources, or if you don\'t have enough energy to support your machines.',
+        buttonText: 'Unlock Destruction',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 500
+        },
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockSolarSystem = $.extend({}, techBase, {
+        name: 'Space',
+        desc: 'Unlocking space-travel allows for launching of rockets and opens a whole new field of research.',
+        buttonText: 'Unlock Space Travel',
+        notifyTitle: 'new Tab!',
+        notifyText: 'You\'ve unlocked the Solar System Tab!',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 500
+        },
+        newTabs: ['solarSystemTab'],
+        newTechs: ['unlockLabT2', 'unlockRocketFuelT2'],
+        tabAlerts: ['solarSystem']
+    });
+
+    instance.unlockRocketFuelT2 = $.extend({}, techBase, {
+        name: 'Oxidisation',
+        desc: 'Oxidisation is a more efficient process of creating Rocket Fuel.',
+        buttonText: 'Unlock Oxidisation',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 450000
+        },
+        newResources: ['rocketFuelT2'],
+        newTechs: ['unlockRocketFuelT3'],
+        tabAlerts: ['solarSystem']
+    });
+
+    instance.unlockRocketFuelT3 = $.extend({}, techBase, {
+        name: 'Hydrazine',
+        desc: 'Hydrazine is a compound created by Methane that increases the speed at which rocket fuel can be produced in a Hydrazine Catalyst Machine.',
+        buttonText: 'Unlock Hydrazine',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 3200000
+        },
+        newResources: ['rocketFuelT3'],
+        tabAlerts: ['solarSystem']
+    });
+
+    instance.unlockLabT2 = $.extend({}, techBase, {
+        name: 'Tier 2 Science',
+        desc: 'Researching this will allow you to increase your science production drastically.',
+        buttonText: 'Unlock Tier 2 Science',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 500
+        },
+        newTechs: ['unlockLabT3']
+    });
+
+    instance.unlockLabT3 = $.extend({}, techBase, {
+        name: 'Tier 3 Science',
+        desc: 'Researching this will allow you to access the third tier of science production, creating much more science than the previous tiers.',
+        buttonText: 'Unlock Tier 3 Science',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 3000
+        },
+        newTechs: ['unlockLabT4']
+    });
+
+    instance.unlockLabT4 = $.extend({}, techBase, {
+        name: 'Tier 4 Science',
+        desc: 'Researching this will allow you to access the fourth tier of science production, creating 10 times as much science as the previous tier.',
+        buttonText: 'Unlock Tier 4 Science',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 50000000
+        }
+    });
+
+    instance.unlockBatteries = $.extend({}, techBase, {
+        name: 'Tier 1 Batteries',
+        desc: 'Tier 1 Batteries improve the amount of energy you can store at once.',
+        buttonText: 'Unlock Batteries',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 15000
+        },
+        newResources: ['batteries', 'energyStorageBox'],
+        newTechs: ['unlockBatteriesT2'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockBatteriesT2 = $.extend({}, techBase, {
+        name: 'Tier 2 Batteries',
+        desc: 'Tier 2 Batteries improve the amount of energy you can store at once',
+        buttonText: 'Unlock T2 Batteries',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 300000
+        },
+        newResources: ['batteriesT2'],
+        newTechs: ['unlockBatteriesT3'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockBatteriesT3 = $.extend({}, techBase, {
+        name: 'Tier 3 Batteries',
+        desc: 'Tier 3 Batteries improve the amount of energy you can store at once',
+        buttonText: 'Unlock T3 Batteries',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 3000000
+        },
+        newResources: ['batteriesT3'],
+        newTechs: ['unlockBatteriesT4'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockBatteriesT4 = $.extend({}, techBase, {
+        name: 'Tier 4 Batteries',
+        desc: 'Tier 4 Batteries improve the amount of energy you can store at once',
+        buttonText: 'Unlock T4 Batteries',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 30000000
+        },
+        newResources: ['batteriesT4'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockPlasma = $.extend({}, techBase, {
+        name: 'Plasma Tier 1 Technology',
+        desc: 'This allows you to turn your energy and hydrogen into Plasma',
+        buttonText: 'Unlock Plasma',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 40000
+        },
+        newResources: ['plasmaNav'],
+        newTechs: ['unlockPlasmaTier2'],
+        tabAlerts: ['resources'],
+        onApply: function() {
+            if (noBorder.indexOf('energyNav') === INDEX_NONE) {
+                noBorder.push('energyNav');
+            }
+        }
+    });
+
+    instance.unlockPlasmaTier2 = $.extend({}, techBase, {
+        name: 'Plasma Tier 2 Technology',
+        desc: 'This research unlocks the second tier of Plasma production, the Plasmatic Pit',
+        buttonText: 'Unlock Plasma Tier 2',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 60000
+        },
+        newResources: ['plasmaTier2'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockPSU = $.extend({}, techBase, {
+        name: 'Plasma Storage Units',
+        desc: 'PSUs increase the limit on plasma you can store at once.',
+        buttonText: 'Unlock PSUs',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 9500000
+        },
+        newResources: ['plasmaStorageUnits', 'plasmaStorageBox'],
+        newTechs: ['unlockPSUT2'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockPSUT2 = $.extend({}, techBase, {
+        name: 'Tier 2 Plasma Storage Units',
+        desc: 'Tier 2 PSUs are more efficient at storing plasma but they are significantly larger and require more resources to make.',
+        buttonText: 'Unlock T2 PSUs',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 37000000
+        },
+        newResources: ['plasmaStorageUnitsT2'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockEmc = $.extend({}, techBase, {
+        name: 'Energy-Mass Conversion',
+        desc: 'This power technology not only lets you create existing resources, but allows you to make new, and only creatable elements, such as meteorite.',
+        buttonText: 'Unlock EMC',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 60000
+        },
+        newResources: ['emcPage'],
+        newTechs: ['unlockMeteorite'],
+        tabAlerts: ['solCenter']
+    });
+
+    instance.unlockMeteorite = $.extend({}, techBase, {
+        name: 'Meteorite',
+        desc: 'Meteorite is one of the rare resources in the Galaxy as it is an artificial one. All of the pre-existing Meteorite that once was in the Kuiper Belt, and similar asteroid fields in other solar systems, has all been mined away. Now, the only way to get is to make it in machines from energy.',
+        buttonText: 'Unlock Meteorite',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 100000
+        },
+        newResources: ['meteoriteNav', 'meteoriteEMC'],
+        newTechs: ['unlockMeteoriteTier1'],
+        tabAlerts: ['resources', 'wonder']
+    });
+
+    instance.unlockMeteoriteTier1 = $.extend({}, techBase, {
+        name: 'Meteorite Tier 1',
+        desc: 'Research an automated way to gather Meteorite so that you don\'t have to worry about losing out when you\'re not around.',
+        buttonText: 'Unlock Meteorite Tier 1',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 75000
+        },
+        newResources: ['meteoriteTier1'],
+        newTechs: ['unlockMeteoriteTier2'],
+        tabAlerts: ['resources']
+
+    });
+
+    instance.unlockMeteoriteTier2 = $.extend({}, techBase, {
+        name: 'Meteorite Tier 2',
+        desc: 'Research a more efficient method of getting meteorite than creating it artificially.',
+        buttonText: 'Unlock Meteorite Tier 2',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 100000
+        },
+        newResources: ['meteoriteTier2'],
+        tabAlerts: ['resources']
+    });
+
+    instance.unlockDyson = $.extend({}, techBase, {
+        name: 'Dyson Ring',
+        desc: 'Dyson Rings produce huge amounts of energy by surrounding the sun in solar stations.',
+        buttonText: 'Unlock Dyson Rings',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 100000
+        },
+        newResources: ['dysonPage'],
+        newTechs: ['unlockDysonSphere'],
+        tabAlerts: ['solCenter']
+    });
+
+    instance.unlockDysonSphere = $.extend({}, techBase, {
+        name: 'Dyson Swarms and Spheres',
+        desc: 'The Dyson Swarms encapsulate the sun in rings of solar stations, whereas Spheres completely encompasses it to allows you to harness enough energy to go interstellar.',
+        buttonText: 'Unlock Dyson Swarms/Spheres',
+        type: TECH_TYPE.UNLOCK,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 500000
+        },
+        newResources: ['dysonSphere'],
+        tabAlerts: ['solCenter']
+    });
+
+    //Upgrades
+
+    instance.upgradeResourceTech = $.extend({}, techBase, {
+        name: 'Upgrade Resource Technology',
+        desc: 'Make your resource machines produce even more resources than before. This upgrade doubles the amount they produce for each unit of Energy.',
+        buttonText: 'Upgrade Resource Tech',
+        type: TECH_TYPE.UPGRADE,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 300
+        },
+        tabAlerts: ['resources'],
+        onApply: function() {
+            pumpjackOutput *= 2;
+            heavyDrillOutput *= 2;
+            advancedDrillOutput *= 2;
+            furnaceWoodInput *= 2;
+            furnaceOutput *= 2;
+            laserCutterOutput *= 2;
+        }
+    });
+
+    instance.upgradeEngineTech = $.extend({}, techBase, {
+        name: 'Upgrade Engine Technology',
+        desc: 'Upgrading Engine Technology will make Charcoal engines produce 4 Energy per second instead of 2.',
+        buttonText: 'Upgrade Charcoal Engines',
+        type: TECH_TYPE.UPGRADE,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 1000
+        },
+        tabAlerts: ['resources'],
+        onApply: function() {
+            charcoalEngineOutput = 4;
+        }
+    });
+
+    instance.upgradeSolarTech = $.extend({}, techBase, {
+        name: 'Upgrade Solar Technology',
+        desc: 'Upgrading Solar Technology will make solar panels produce 3 Energy per second instead of 1.5.',
+        buttonText: 'Upgrade Solar Panels',
+        type: TECH_TYPE.UPGRADE,
+        costType: COST_TYPE.FIXED,
+        cost: {
+            'science': 5000
+        },
+        newTechs: ['unlockBatteries'],
+        tabAlerts: ['resources'],
+        onApply: function() {
+            solarPanelOutput = 3;
+        }
+    });
+
+    instance.efficiencyResearch = $.extend({}, techBase, {
+        name: 'Resource Efficiency',
+        desc: 'Resource Efficiency increases the income of resources by 1%/s per purchase.',
+        type: TECH_TYPE.UPGRADE,
+        costType: COST_TYPE.FIXED,
+        maxLevel: -1,
+        cost: {
+            'science': 100000
+        }
+    });
+
+    instance.scienceEfficiencyResearch = $.extend({}, techBase, {
+        name: 'Science Efficiency',
+        desc: 'Science Efficiency increases the science production by 2% per purchase.',
+        type: TECH_TYPE.UPGRADE,
+        costType: COST_TYPE.FIXED,
+        maxLevel: -1,
+        cost: {
+            'science': 10000000
+        }
+    });
+
+    instance.energyEfficiencyResearch = $.extend({}, techBase, {
+        name: 'Energy Efficiency',
+        desc: 'Energy Efficiency decreases the energy consumption of all machines by 1%/s per purchase.',
+        type: TECH_TYPE.UPGRADE,
+        costType: COST_TYPE.FIXED,
+        maxLevel: 25,
+        cost: {
+            'science': 10000000
+        }
+    });
+
+    instance.batteryEfficiencyResearch = $.extend({}, techBase, {
+        name: 'Battery Efficiency',
+        desc: 'Battery Efficiency improves the storage capabilities of your batteries by 1% per upgrade.',
+        type: TECH_TYPE.UPGRADE,
+        costType: COST_TYPE.FIXED,
+        maxLevel: 200,
+        cost: {
+            'science': 100000000
+        }
+    });
+
+    return instance;
+}());</script>
+	<!-- data/techData.js -->
+<script type="text/javascript">Game.interstellarCategoryData = (function () {
+
+    var instance = {};
+
+    instance.general = {
+        title: 'Interstellar',
+        category: 'general'
+    };
+
+    instance.faction = {
+        title: 'Faction Star Systems',
+        category: 'faction',
+    };
+
+    return instance;
+
+}());
+
+Game.interstellarData = (function(){
+
+	var instance = {};
+
+	instance.comms = {
+		name: 'Communications',
+		desc: 'This is where you learn about other systems to travel to. <br><b>NB: The first star, Alpha Centauri is 4.3 LY away. 1 IRS will not get you there.</b>',
+		category: 'general',
+		unlocked: false
+	};
+
+	instance.rocket = {
+		name: 'Rockets',
+		desc: 'This is where you can construct your transport to the stars.',
+		category: 'general',
+		built: 'Not Built',
+		unlocked: false
+	};
+
+	instance.antimatter = {
+		name: 'Antimatter',
+		desc: 'Your fuel for interstellar travel is produced here. Unfortunately, you can only handle 100k Antimatter per Star System as it is incredibly volatile.<br><br><button class="btn btn-default" onclick="toggleAntimatter()">Toggle Antimatter <span id="antimatterToggled">On</span></button>',
+		category: 'general',
+		unlocked: false
+	};
+
+	instance.travel = {
+		name: 'Travel',
+		desc: 'Here, you can travel across the cosmos to your heart\'s desire. When you explore a star system, it will appear in the respective faction tab, where you can gain control of it for boosts in the resources present. The number in () after the distance is the antimatter needed to travel there.',
+		category: 'general',
+		unlocked: false
+	};
+
+	instance.military = {
+		name: 'Military',
+		desc: 'This is where you can build up your fleet of ships to invade other systems. Your total fleet\'s attributes are based on which ships you own.',
+		category: 'general',
+		unlocked: false
+	};
+
+	instance.carnelian = {
+		name: "Carnelian Resistance",
+		desc: "A ruthless faction with a fierce anger towards the ones in power, most notable, the Prasnian Empire. They are incessant in their opposition and focus their whole force towards attacking their enemies. Because of this, what they offer comprises mostly of upgrades tending towards a more active gameplay.",
+		category: "faction",
+		opinion: 0,
+		unlocked: false
+	};
+
+	instance.prasnian = {
+		name: "Prasnian Empire",
+		desc: "The current leader in the galaxy and the faction most focused on keeping things as they are. Opposed to change, they have an authoritarian regime and offer mainly upgrades concerning structures such as the Dysons or Wonders",
+		category: "faction",
+		opinion: 0,
+		unlocked: false
+	};
+
+	instance.hyacinite = {
+		name: "Hyacinite Congregation",
+		desc: "The Hyacinite Congregationg is a science loving society, proud of all advances in technology and always looking to the future. They fight for the truth and are welcoming to anyone who shares their beliefs.",
+		category: "faction",
+		opinion: 0,
+		unlocked: false
+	};
+
+	instance.kitrinos = {
+		name: "Kitrinos Corporation",
+		desc: "This private company has grown powerful over the galaxy and is inspired by profits, with allies to those who can support their aims. Upgrades offered focus on passive gains, with a large amount of automation.",
+		category: "faction",
+		opinion: 0,
+		unlocked: false
+	};
+
+	instance.moviton = {
+		name: "Moviton Syndicate",
+		desc: "The Moviton Syndicate is an expansionist centred faction, with a goal of conquest over the galaxy. They often play both sides of a conflict, hoping to gain from the chaos. They offer improvements in your travel, including rocket building and interstellar travel.",
+		category: "faction",
+		opinion: 0,
+		unlocked: false
+	};
+
+	instance.overlord = {
+		name: "Overlord Cult",
+		desc: "This faction is shrowded in mystery. While not much is known, a great sense of power overlooks the whole galaxy, seemingly above the other 5 factions and their 'petty' squables. The upgrades from your loyalty to the Overlord are not constrained to a type and vary greatly.",
+		category: "faction",
+		opinion: 0,
+		unlocked: false
+	};
+
+	return instance;
+
+}());
+
+Game.commsData = (function(){
+
+	var instance = {};
+
+	instance.astroBreakthrough = {
+		entryName: 'astroBreakthrough',
+		name: 'Astronomical Breakthrough',
+		desc: 'A huge problem with the theory of interstellar space travel is on the verge of being broken. Make it happen with this upgrade. This is a one time upgrade, increasing your exploration range by 5 Light Years.',
+		category: 'comms',
+		unlocked: true,
+		displayNeedsUpdate: true,
+		max: 1,
+		completed: false,
+		cost: {
+			'metal': 60000000000,
+			'ice': 6000000000,
+			'meteorite': 60000000
+		},
+		defaultCost: {
+			'metal': 60000000000,
+			'ice': 6000000000,
+			'meteorite': 60000000
+		}
+	};
+
+	instance.IRS = {
+		entryName: 'IRS',
+		name: 'Interstellar Radar Scanner',
+		desc: 'The Overlord gifts you with the technology to discover stars in outer space by using the IRS. Each one increases the exploration range by 1 Light Year.',
+		category: 'comms',
+		unlocked: true,
+		displayNeedsUpdate: true,
+		cost: {
+			'metal': 38600000000,
+			'ice': 4320000000,
+			'meteorite': 15800000
+		},
+		defaultCost: {
+			'metal': 38600000000,
+			'ice': 4320000000,
+			'meteorite': 15800000
+		}
+	};
+
+	return instance;
+
+}());
+
+Game.rocketData = (function(){
+
+	var instance = {};
+
+	instance.tier1Rocket = {
+		name: 'Rocket Ship',
+		desc: 'The Rocket Ship can travel to Stars in the Milky Way, but cannot land on objects within the systems.',
+		category: 'rocket',
+		max: 1,
+		unlocked: true,
+		built: false,
+		displayNeedsUpdate: true,
+		cost: {
+			'shield': 50,
+			'engine': 25,
+			'aero': 15
+		}
+	};
+
+	return instance;
+
+}());
+
+Game.rocketPartsData = (function(){
+
+	var instance = {};
+
+	instance.shield = {
+		name: 'Shield Plating',
+		entryName: 'shield',
+		desc: 'This plating combats the Sun\'s radiation, and can protect anyone inside from the frigid cold of space.',
+		category: 'rocketParts',
+		max: 50,
+		unlocked: true,
+		displayNeedsUpdate: true,
+		cost: {
+			'lunarite': 100000,
+			'titanium': 100000,
+			'metal': 100000
+		},
+		defaultCost: {
+			'lunarite': 100000,
+			'titanium': 100000,
+			'metal': 100000
+		}
+	};
+
+	instance.engine = {
+		name: 'Engine Unit',
+		entryName: 'engine',
+		desc: 'These combine antimatter with matter in a controlled reaction to create propulsion that will carry you to the stars.',
+		category: 'rocketParts',
+		max: 25,
+		unlocked: true,
+		displayNeedsUpdate: true,
+		cost: {
+			'silicon': 500000,
+			'meteorite': 10000,
+			'hydrogen': 250000
+		},
+		defaultCost: {
+			'silicon': 500000,
+			'meteorite': 10000,
+			'hydrogen': 250000
+		}
+	};
+
+	instance.aero = {
+		name: 'Aerodynamic Sections',
+		entryName: 'aero',
+		desc: 'These allow for easy takeoffs and landings out of atmospheres so that you don\'t have to worry about air resistance.',
+		category: 'rocketParts',
+		max: 15,
+		unlocked: true,
+		displayNeedsUpdate: true,
+		cost: {
+			'silver': 200000,
+			'ice': 300000,
+			'gem': 250000
+		},
+		defaultCost: {
+			'silver': 200000,
+			'ice': 300000,
+			'gem': 250000
+		}
+	};
+
+	return instance;
+
+}());
+
+Game.antimatterData = (function(){
+
+	var instance = {};
+
+	instance.drive = {
+		entryName: 'drive',
+		name: 'Alcubierre Drive',
+		desc: 'This powerful reactor can turn high-energy plasma into the most efficient fuel we can imagine.',
+		category: 'antimatter',
+		unlocked: true,
+		displayNeedsUpdate: true,
+		resourcePerSecond: {
+            'antimatter': 0.5,
+            'plasma': -100,
+            'ice': -12000
+        },
+		cost: {
+			'silver': 163000000,
+			'oil': 712000000,
+			'meteorite': 12300000
+		},
+		defaultCost: {
+			'silver': 163000000,
+			'oil': 712000000,
+			'meteorite': 12300000
+		}
+	};
+
+	return instance;
+
+}());
+
+Game.militaryData = (function(){
+
+	var instance = {};
+
+	instance.scout = {
+		entryName: 'scout',
+		name: 'Scout',
+		desc: 'Scout ships are the smallest and fastest ships and cost the least of all. Despite their seemingly little worth, they are important in battle and in numbers, can be deadly.',
+		category: 'military',
+		unlocked: true,
+		displayNeedsUpdate: true,
+		stats: {
+			'power': 3,
+			'defense': 2,
+			'speed': 15
+		},
+		cost: {
+			'metal': 870000000,
+			'gem': 420000000,
+			'silver': 390000000
+		},
+		defaultCost: {
+			'metal': 870000000,
+			'gem': 420000000,
+			'silver': 390000000
+		}
+	};
+
+	instance.frigate = {
+		entryName: 'frigate',
+		name: 'Frigate',
+		desc: 'Larger than scouts, Frigates are among the smaller side of ship warefare. They have more power than scouts, but are significantly slower.',
+		category: 'military',
+		unlocked: true,
+		displayNeedsUpdate: true,
+		stats: {
+			'power': 5,
+			'defense': 6,
+			'speed': 12
+		},
+		cost: {
+			'gold': 930000000,
+			'lunarite': 6100000000,
+			'meteorite': 13000000
+		},
+		defaultCost: {
+			'gold': 930000000,
+			'lunarite': 6100000000,
+			'meteorite': 13000000
+		}
+	};
+
+	instance.corvette = {
+		entryName: 'corvette',
+		name: 'Corvette',
+		desc: 'The Corvette is a mid-sized ship with decent speed, given its other attributes. What it lacks in defense, it makes up for in power and speed and is a good ship to populate your fleets with.',
+		category: 'military',
+		unlocked: true,
+		displayNeedsUpdate: true,
+		stats: {
+			'power': 8,
+			'defense': 4,
+			'speed': 10
+		},
+		cost: {
+			'titanium': 1620000000,
+			'ice': 1020000000,
+			'silicon': 1140000000
+		},
+		defaultCost: {
+			'titanium': 1620000000,
+			'ice': 1020000000,
+			'silicon': 1140000000
+		}
+	};
+
+	instance.battlecruiser = {
+		entryName: 'battlecruiser',
+		name: 'Battle Cruiser',
+		desc: 'The Battle Cruiser is a costly investment, but pays off with a balanced mix of power, defense and speed. It is a high-end ship, both in terms of attributes and cost.',
+		category: 'military',
+		unlocked: true,
+		displayNeedsUpdate: true,
+		stats: {
+			'power': 15,
+			'defense': 13,
+			'speed': 9
+		},
+		cost: {
+			'metal': 4900000000,
+			'uranium': 2300000000,
+			'hydrogen': 3100000000
+		},
+		defaultCost: {
+			'metal': 4900000000,
+			'uranium': 2300000000,
+			'hydrogen': 3100000000
+		}
+	};
+
+	instance.capitalship = {
+		entryName: 'capitalship',
+		name: 'Capital Ship',
+		desc: 'The Capital Ship is a Defense-heavy ship, but can still pack a punch with it\'s large attack force. The main downside is the slow speed, dragging the fleet\'s manouverability down.',
+		category: 'military',
+		unlocked: true,
+		displayNeedsUpdate: true,
+		stats: {
+			'power': 57,
+			'defense': 62,
+			'speed': 5
+		},
+		cost: {
+			'lunarite': 5300000000,
+			'helium': 4600000000,
+			'meteorite': 1700000000
+		},
+		defaultCost: {
+			'lunarite': 5300000000,
+			'helium': 4600000000,
+			'meteorite': 1700000000
+		}
+	};
+
+	return instance;
+
+}());</script>
+	<!-- data/interstellarData.js -->
+<script type="text/javascript">Game.starData = (function(){
+
+	var instance = {};
+
+	instance._201 = {
+		name: "Alpha Centauri",
+		distance: 4.3,
+		planets: 1,
+		faction: "Hyacinite Congregation",
+		factionId: "hyacinite",
+		resource1: "Ice",
+		resource2: "Hydrogen",
+		stats: {
+			"power": 30,
+			"defense": 20,
+			"speed": 5,
+		},
+	};
+
+	instance._301 = {
+		name: "Barnard's Star",
+		distance: 5.94,
+		planets: 0,
+		faction: "Carnelian Resistance",
+		factionId: "carnelian",
+		resource1: "Hydrogen",
+		resource2: "Helium",
+		stats: {
+			"power": 52,
+			"defense": 49,
+			"speed": 6,
+		},
+	};
+
+	instance._401 = {
+		name: "CN Leonis",
+		distance: 7.8,
+		planets: 1,
+		faction: "Prasnian Empire",
+		factionId: "prasnian",
+		resource1: "Lunarite",
+		resource2: "Gem",
+		stats: {
+			"power": 86,
+			"defense": 71,
+			"speed": 8,
+		},
+	};
+
+	instance._501 = {
+		name: "Lalande 21185",
+		distance: 8.31,
+		planets: 1,
+		faction: "Kitrinos Corporation",
+		factionId: "kitrinos",
+		resource1: "Titanium",
+		resource2: "Silicon",
+		stats: {
+			"power": 132,
+			"defense": 117,
+			"speed": 8,
+		},
+	};
+
+	instance._701 = {
+		name: "Gliese 65",
+		distance: 8.55,
+		planets: 1,
+		faction: "Moviton Syndicate",
+		factionId: "moviton",
+		resource1: "Charcoal",
+		resource2: "Methane",
+		stats: {
+			"power": 146,
+			"defense": 131,
+			"speed": 10,
+		},
+	};
+
+	instance._601 = {
+		name: "Sirius",
+		distance: 8.6,
+		planets: 5,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Silicon",
+		resource2: "Methane",
+		stats: {
+			"power": 110,
+			"defense": 129,
+			"speed": 8,
+		},
+	};
+
+	instance._130601 = {
+		name: "V1216 Sagittarii",
+		distance: 9.69,
+		planets: 2,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Gold",
+		resource2: "Lava",
+		stats: {
+			"power": 144,
+			"defense": 229,
+			"speed": 12,
+		},
+	};
+
+	instance._163901 = {
+		name: "Ross 248",
+		distance: 10.33,
+		planets: 2,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Uranium",
+		resource2: "Methane",
+		stats: {
+			"power": 273,
+			"defense": 226,
+			"speed": 15,
+		},
+	};
+
+	instance._25101 = {
+		name: "Epsilon Eridani",
+		distance: 10.5,
+		planets: 5,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Hydrogen",
+		resource2: "Metal",
+		stats: {
+			"power": 293,
+			"defense": 112,
+			"speed": 13,
+		},
+	};
+
+	instance._158101 = {
+		name: "Lacaille 9352",
+		distance: 10.73,
+		planets: 5,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Oil",
+		resource2: "Lava",
+		stats: {
+			"power": 443,
+			"defense": 147,
+			"speed": 7,
+		},
+	};
+
+	instance._80101 = {
+		name: "FI Virginis",
+		distance: 10.89,
+		planets: 4,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Hydrogen",
+		resource2: "Helium",
+		stats: {
+			"power": 125,
+			"defense": 198,
+			"speed": 11,
+		},
+	};
+
+	instance._217101 = {
+		name: "EZ Aquarii",
+		distance: 11.08,
+		planets: 1,
+		factionId: "hyacinite",
+		faction: "Hyacinite Congregation",
+		resource1: "Silver",
+		resource2: "Metal",
+		stats: {
+			"power": 420,
+			"defense": 143,
+			"speed": 12,
+		},
+	};
+
+	instance._181901 = {
+		name: "Procyon",
+		distance: 11.41,
+		planets: 1,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Gem",
+		resource2: "Charcoal",
+		stats: {
+			"power": 397,
+			"defense": 381,
+			"speed": 5,
+		},
+	};
+
+	instance._213301 = {
+		name: "61 Cygni",
+		distance: 11.43,
+		planets: 5,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Uranium",
+		resource2: "Ice",
+		stats: {
+			"power": 289,
+			"defense": 177,
+			"speed": 11,
+		},
+	};
+
+	instance._207601 = {
+		name: "Struve 2398",
+		distance: 11.64,
+		planets: 1,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Helium",
+		resource2: "Lunarite",
+		stats: {
+			"power": 203,
+			"defense": 238,
+			"speed": 7,
+		},
+	};
+
+	instance._166701 = {
+		name: "Groombridge 34",
+		distance: 11.64,
+		planets: 5,
+		factionId: "hyacinite",
+		faction: "Hyacinite Congregation",
+		resource1: "Meteorite",
+		resource2: "Silver",
+		stats: {
+			"power": 331,
+			"defense": 286,
+			"speed": 6,
+		},
+	};
+
+	instance._224601 = {
+		name: "SIPS 1259-4336",
+		distance: 11.8,
+		planets: 1,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Methane",
+		resource2: "Gold",
+		stats: {
+			"power": 513,
+			"defense": 164,
+			"speed": 9,
+		},
+	};
+
+	instance._58601 = {
+		name: "DX Cancri",
+		distance: 11.83,
+		planets: 4,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Helium",
+		resource2: "Methane",
+		stats: {
+			"power": 427,
+			"defense": 184,
+			"speed": 11,
+		},
+	};
+
+	instance._151801 = {
+		name: "Epsilon Indi",
+		distance: 11.83,
+		planets: 5,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Gem",
+		resource2: "Oil",
+		stats: {
+			"power": 317,
+			"defense": 202,
+			"speed": 8,
+		},
+	};
+
+	instance._13601 = {
+		name: "Tau Ceti",
+		distance: 11.9,
+		planets: 4,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Silicon",
+		resource2: "Silicon",
+		stats: {
+			"power": 491,
+			"defense": 413,
+			"speed": 6,
+		},
+	};
+
+	instance._25401 = {
+		name: "Gliese 1061",
+		distance: 11.94,
+		planets: 4,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Uranium",
+		resource2: "Gem",
+		stats: {
+			"power": 207,
+			"defense": 372,
+			"speed": 11,
+		},
+	};
+
+	instance._10101 = {
+		name: "YZ Ceti",
+		distance: 12.2,
+		planets: 1,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Gold",
+		resource2: "Hydrogen",
+		stats: {
+			"power": 506,
+			"defense": 334,
+			"speed": 15,
+		},
+	};
+
+	instance._51801 = {
+		name: "Luyten's Star",
+		distance: 12.39,
+		planets: 1,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Uranium",
+		resource2: "Titanium",
+		stats: {
+			"power": 320,
+			"defense": 355,
+			"speed": 7,
+		},
+	};
+
+	instance._223901 = {
+		name: "Teegarden's Star",
+		distance: 12.4,
+		planets: 4,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Silver",
+		resource2: "Meteorite",
+		stats: {
+			"power": 530,
+			"defense": 337,
+			"speed": 14,
+		},
+	};
+
+	instance._35801 = {
+		name: "Kapteyn's Star",
+		distance: 12.78,
+		planets: 1,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Lava",
+		resource2: "Silver",
+		stats: {
+			"power": 468,
+			"defense": 285,
+			"speed": 10,
+		},
+	};
+
+	instance._146301 = {
+		name: "AX Microscopii",
+		distance: 12.87,
+		planets: 5,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Meteorite",
+		resource2: "Silver",
+		stats: {
+			"power": 311,
+			"defense": 466,
+			"speed": 6,
+		},
+	};
+
+	instance._216801 = {
+		name: "DO Cephei",
+		distance: 13.07,
+		planets: 4,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Lunarite",
+		resource2: "Ice",
+		stats: {
+			"power": 526,
+			"defense": 490,
+			"speed": 9,
+		},
+	};
+
+	instance._224101 = {
+		name: "DENIS 1048-3956",
+		distance: 13.16,
+		planets: 1,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Wood",
+		resource2: "Metal",
+		stats: {
+			"power": 587,
+			"defense": 285,
+			"speed": 12,
+		},
+	};
+
+	instance._179501 = {
+		name: "V577 Monocerotis",
+		distance: 13.47,
+		planets: 1,
+		factionId: "hyacinite",
+		faction: "Hyacinite Congregation",
+		resource1: "Charcoal",
+		resource2: "Lava",
+		stats: {
+			"power": 430,
+			"defense": 411,
+			"speed": 7,
+		},
+	};
+
+	instance._114001 = {
+		name: "Wolf 1061",
+		distance: 13.91,
+		planets: 5,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Metal",
+		resource2: "Meteorite",
+		stats: {
+			"power": 705,
+			"defense": 479,
+			"speed": 11,
+		},
+	};
+
+	instance._194201 = {
+		name: "Gliese 473",
+		distance: 14.05,
+		planets: 1,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Silver",
+		resource2: "Lava",
+		stats: {
+			"power": 460,
+			"defense": 465,
+			"speed": 10,
+		},
+	};
+
+	instance._6501 = {
+		name: "van Maanen's Star",
+		distance: 14.13,
+		planets: 1,
+		factionId: "hyacinite",
+		faction: "Hyacinite Congregation",
+		resource1: "Gold",
+		resource2: "Silicon",
+		stats: {
+			"power": 588,
+			"defense": 522,
+			"speed": 8,
+		},
+	};
+
+	instance._1101 = {
+		name: "Gliese 1",
+		distance: 14.22,
+		planets: 3,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Silicon",
+		resource2: "Methane",
+		stats: {
+			"power": 779,
+			"defense": 410,
+			"speed": 10,
+		},
+	};
+
+	instance._15301 = {
+		name: "WISE 1639-6847",
+		distance: 14.57,
+		planets: 2,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Metal",
+		resource2: "Hydrogen",
+		stats: {
+			"power": 568,
+			"defense": 229,
+			"speed": 15,
+		},
+	};
+
+	instance._222401 = {
+		name: "Luyten 143-23",
+		distance: 14.65,
+		planets: 1,
+		factionId: "hyacinite",
+		faction: "Hyacinite Congregation",
+		resource1: "Lava",
+		resource2: "Methane",
+		stats: {
+			"power": 527,
+			"defense": 239,
+			"speed": 6,
+		},
+	};
+
+	instance._72501 = {
+		name: "LP 731-58",
+		distance: 14.76,
+		planets: 4,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Uranium",
+		resource2: "Lava",
+		stats: {
+			"power": 620,
+			"defense": 612,
+			"speed": 15,
+		},
+	};
+
+	instance._122601 = {
+		name: "Gliese 687",
+		distance: 14.77,
+		planets: 2,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Lunarite",
+		resource2: "Lunarite",
+		stats: {
+			"power": 426,
+			"defense": 317,
+			"speed": 12,
+		},
+	};
+
+	instance._121101 = {
+		name: "Gliese 674",
+		distance: 14.8,
+		planets: 1,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Methane",
+		resource2: "Hydrogen",
+		stats: {
+			"power": 750,
+			"defense": 567,
+			"speed": 14,
+		},
+	};
+
+	instance._79501 = {
+		name: "CC 658",
+		distance: 15.07,
+		planets: 1,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Lunarite",
+		resource2: "Silver",
+		stats: {
+			"power": 675,
+			"defense": 565,
+			"speed": 8,
+		},
+	};
+
+	instance._1501 = {
+		name: "Gliese 1002",
+		distance: 15.33,
+		planets: 1,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Gold",
+		resource2: "Gold",
+		stats: {
+			"power": 410,
+			"defense": 321,
+			"speed": 6,
+		},
+	};
+
+	instance._210501 = {
+		name: "V1581 Cygni",
+		distance: 15.39,
+		planets: 1,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Meteorite",
+		resource2: "Meteorite",
+		stats: {
+			"power": 479,
+			"defense": 563,
+			"speed": 14,
+		},
+	};
+
+	instance._189701 = {
+		name: "Gliese 1245",
+		distance: 15.76,
+		planets: 1,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Helium",
+		resource2: "Gold",
+		stats: {
+			"power": 708,
+			"defense": 278,
+			"speed": 10,
+		},
+	};
+
+	instance._69601 = {
+		name: "AD Leonis",
+		distance: 16,
+		planets: 2,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Gem",
+		resource2: "Titanium",
+		stats: {
+			"power": 657,
+			"defense": 767,
+			"speed": 10,
+		},
+	};
+
+	instance._148501 = {
+		name: "Gliese 832",
+		distance: 16.1,
+		planets: 2,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Oil",
+		resource2: "Methane",
+		stats: {
+			"power": 443,
+			"defense": 384,
+			"speed": 15,
+		},
+	};
+
+	instance._175601 = {
+		name: "Keid",
+		distance: 16.45,
+		planets: 4,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Wood",
+		resource2: "Meteorite",
+		stats: {
+			"power": 411,
+			"defense": 544,
+			"speed": 15,
+		},
+	};
+
+	instance._155801 = {
+		name: "EV Lacertae",
+		distance: 16.47,
+		planets: 3,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Ice",
+		resource2: "Meteorite",
+		stats: {
+			"power": 633,
+			"defense": 589,
+			"speed": 5,
+		},
+	};
+
+	instance._206902 = {
+		name: "70 Ophiuchi",
+		distance: 16.59,
+		planets: 5,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Hydrogen",
+		resource2: "Charcoal",
+		stats: {
+			"power": 602,
+			"defense": 555,
+			"speed": 11,
+		},
+	};
+
+	instance._136701 = {
+		name: "Altair",
+		distance: 16.77,
+		planets: 1,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Methane",
+		resource2: "Metal",
+		stats: {
+			"power": 559,
+			"defense": 388,
+			"speed": 6,
+		},
+	};
+
+	instance._166402 = {
+		name: "Gliese 1005",
+		distance: 17,
+		planets: 3,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Helium",
+		resource2: "Methane",
+		stats: {
+			"power": 539,
+			"defense": 511,
+			"speed": 10,
+		},
+	};
+
+	instance._185101 = {
+		name: "Gliese 1116",
+		distance: 17.05,
+		planets: 1,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Gold",
+		resource2: "Gold",
+		stats: {
+			"power": 802,
+			"defense": 792,
+			"speed": 10,
+		},
+	};
+
+	instance._79901 = {
+		name: "Gliese 445",
+		distance: 17.58,
+		planets: 1,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Charcoal",
+		resource2: "Gold",
+		stats: {
+			"power": 956,
+			"defense": 615,
+			"speed": 6,
+		},
+	};
+
+	instance._95001 = {
+		name: "BD +15°262",
+		distance: 17.71,
+		planets: 1,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Titanium",
+		resource2: "Meteorite",
+		stats: {
+			"power": 595,
+			"defense": 664,
+			"speed": 8,
+		},
+	};
+
+	instance._175901 = {
+		name: "LP 816-60",
+		distance: 17.98,
+		planets: 1,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Helium",
+		resource2: "Meteorite",
+		stats: {
+			"power": 540,
+			"defense": 332,
+			"speed": 12,
+		},
+	};
+
+	instance._175902 = {
+		name: "Stein 2051",
+		distance: 17.98,
+		planets: 1,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Hydrogen",
+		resource2: "Wood",
+		stats: {
+			"power": 1247,
+			"defense": 589,
+			"speed": 9,
+		},
+	};
+
+	instance._37601 = {
+		name: "Gliese 205",
+		distance: 18.56,
+		planets: 1,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Ice",
+		resource2: "Meteorite",
+		stats: {
+			"power": 706,
+			"defense": 729,
+			"speed": 14,
+		},
+	};
+
+	instance._133601 = {
+		name: "Luyten 347-14",
+		distance: 18.56,
+		planets: 3,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Titanium",
+		resource2: "Methane",
+		stats: {
+			"power": 471,
+			"defense": 749,
+			"speed": 8,
+		},
+	};
+
+	instance._203902 = {
+		name: "V1054 Ophiuchi",
+		distance: 18.72,
+		planets: 5,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Wood",
+		resource2: "Uranium",
+		stats: {
+			"power": 873,
+			"defense": 1048,
+			"speed": 11,
+		},
+	};
+
+	instance._135801 = {
+		name: "Sigma Draconis",
+		distance: 18.81,
+		planets: 1,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Uranium",
+		resource2: "Meteorite",
+		stats: {
+			"power": 635,
+			"defense": 664,
+			"speed": 12,
+		},
+	};
+
+	instance._39101 = {
+		name: "Ross 47",
+		distance: 18.88,
+		planets: 1,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Ice",
+		resource2: "Lunarite",
+		stats: {
+			"power": 1396,
+			"defense": 698,
+			"speed": 14,
+		},
+	};
+
+	instance._123401 = {
+		name: "Luyten 205-128",
+		distance: 18.95,
+		planets: 5,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Charcoal",
+		resource2: "Silicon",
+		stats: {
+			"power": 1415,
+			"defense": 525,
+			"speed": 13,
+		},
+	};
+
+	instance._56501 = {
+		name: "Luyten 674-15",
+		distance: 19.19,
+		planets: 1,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Oil",
+		resource2: "Gem",
+		stats: {
+			"power": 370,
+			"defense": 507,
+			"speed": 14,
+		},
+	};
+
+	instance._200001 = {
+		name: "Gliese 570",
+		distance: 19.26,
+		planets: 4,
+		factionId: "hyacinite",
+		faction: "Hyacinite Congregation",
+		resource1: "Gold",
+		resource2: "Meteorite",
+		stats: {
+			"power": 1176,
+			"defense": 612,
+			"speed": 10,
+		},
+	};
+
+	instance._107001 = {
+		name: "CD -40°971",
+		distance: 19.35,
+		planets: 2,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Gold",
+		resource2: "Hydrogen",
+		stats: {
+			"power": 805,
+			"defense": 587,
+			"speed": 11,
+		},
+	};
+
+	instance._167801 = {
+		name: "Eta Cassiopeiae",
+		distance: 19.42,
+		planets: 1,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Oil",
+		resource2: "Metal",
+		stats: {
+			"power": 762,
+			"defense": 511,
+			"speed": 15,
+		},
+	};
+
+	instance._204801 = {
+		name: "36 Ophiuchi",
+		distance: 19.47,
+		planets: 2,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Silicon",
+		resource2: "Gem",
+		stats: {
+			"power": 1496,
+			"defense": 1070,
+			"speed": 13,
+		},
+	};
+
+	instance._164301 = {
+		name: "BD +1°4774",
+		distance: 19.47,
+		planets: 1,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Gem",
+		resource2: "Silver",
+		stats: {
+			"power": 497,
+			"defense": 424,
+			"speed": 7,
+		},
+	};
+
+	instance._211202 = {
+		name: "HR 7703",
+		distance: 19.74,
+		planets: 3,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Methane",
+		resource2: "Silver",
+		stats: {
+			"power": 1331,
+			"defense": 554,
+			"speed": 14,
+		},
+	};
+
+	instance._24201 = {
+		name: "82 Eridani",
+		distance: 19.77,
+		planets: 5,
+		factionId: "hyacinite",
+		faction: "Hyacinite Congregation",
+		resource1: "Gold",
+		resource2: "Lunarite",
+		stats: {
+			"power": 595,
+			"defense": 956,
+			"speed": 14,
+		},
+	};
+
+	instance._100801 = {
+		name: "BD -11°375",
+		distance: 19.95,
+		planets: 1,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Metal",
+		resource2: "Titanium",
+		stats: {
+			"power": 1095,
+			"defense": 685,
+			"speed": 8,
+		},
+	};
+
+	instance._124101 = {
+		name: "EG 372",
+		distance: 20.03,
+		planets: 4,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Hydrogen",
+		resource2: "Ice",
+		stats: {
+			"power": 863,
+			"defense": 583,
+			"speed": 6,
+		},
+	};
+
+	instance._139701 = {
+		name: "Gliese 784",
+		distance: 20.24,
+		planets: 1,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Methane",
+		resource2: "Silicon",
+		stats: {
+			"power": 1624,
+			"defense": 1208,
+			"speed": 12,
+		},
+	};
+
+	instance._103201 = {
+		name: "Gliese 581",
+		distance: 20.26,
+		planets: 1,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Hydrogen",
+		resource2: "Methane",
+		stats: {
+			"power": 857,
+			"defense": 927,
+			"speed": 5,
+		},
+	};
+
+	instance._219102 = {
+		name: "EQ Pegasi",
+		distance: 20.38,
+		planets: 1,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Wood",
+		resource2: "Meteorite",
+		stats: {
+			"power": 1232,
+			"defense": 921,
+			"speed": 11,
+		},
+	};
+
+	instance._105801 = {
+		name: "HN Librae",
+		distance: 20.45,
+		planets: 3,
+		factionId: "kitrinos",
+		faction: "Kitrinos Corporation",
+		resource1: "Lunarite",
+		resource2: "Hydrogen",
+		stats: {
+			"power": 1478,
+			"defense": 1182,
+			"speed": 7,
+		},
+	};
+
+	instance._204702 = {
+		name: "Gliese 3877",
+		distance: 20.62,
+		planets: 1,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Ice",
+		resource2: "Helium",
+		stats: {
+			"power": 550,
+			"defense": 863,
+			"speed": 15,
+		},
+	};
+
+	instance._50401 = {
+		name: "QY Aurigae",
+		distance: 20.74,
+		planets: 1,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Lava",
+		resource2: "Gem",
+		stats: {
+			"power": 1439,
+			"defense": 863,
+			"speed": 12,
+		},
+	};
+
+	instance._116901 = {
+		name: "Wolf 629",
+		distance: 21.18,
+		planets: 1,
+		factionId: "carnelian",
+		faction: "Carnelian Resistance",
+		resource1: "Oil",
+		resource2: "Lunarite",
+		stats: {
+			"power": 1570,
+			"defense": 577,
+			"speed": 10,
+		},
+	};
+
+	instance._159101 = {
+		name: "Gliese 1128",
+		distance: 21.28,
+		planets: 4,
+		factionId: "moviton",
+		faction: "Moviton Syndicate",
+		resource1: "Helium",
+		resource2: "Lunarite",
+		stats: {
+			"power": 830,
+			"defense": 652,
+			"speed": 6,
+		},
+	};
+
+	instance._113301 = {
+		name: "Gliese 625",
+		distance: 21.47,
+		planets: 2,
+		factionId: "prasnian",
+		faction: "Prasnian Empire",
+		resource1: "Hydrogen",
+		resource2: "Metal",
+		stats: {
+			"power": 1769,
+			"defense": 631,
+			"speed": 14,
+		},
+	};
+
+	return instance;
+
+}());</script>
+	<!-- data/starData.js -->
+<script type="text/javascript">Game.settings = (function(){
+
+    var autoSaveMapping = {
+        '30secs': 30 * 1000,
+        '2mins': 2 * 60 * 1000,
+        '10mins': 10 * 60 * 1000,
+        'off': 10000000000000000000
+    };
+
+    var instance = {
+        dataVersion: 1,
+        entries: {
+            formatter: 'shortName',
+            boldEnabled: false,
+            sidebarCompressed: false,
+            notificationsEnabled: true,
+            saveNotifsEnabled: true,
+            gainButtonsHidden: false,
+            redDestroyButtons: false,
+            hideCompleted: false,
+            theme: 'base',
+            autoSaveInterval: 30 * 1000
+        },
+        elementCache: {},
+        reapplyTheme: true
+    };
+
+    instance.format = function(value, digit) {
+        var format = this.entries.formatter || 'shortName';
+        return Game.utils.formatters[format](value.toFixed(digit || 0));
+    };
+
+    instance.getEl = function(id) {
+        var element = this.elementCache[id];
+        if(!element) {
+            element = $('#' + id);
+            if(element.length > 0) {
+                this.elementCache[id] = element;
+            }
+        }
+        return element;
+    };
+
+    instance.turnRedOnNegative = function(value, id) {
+        var element = this.getEl(id);
+        if(element.length === 0) {
+            console.error("Element not found: " + id);
+            return;
+        }
+
+        if(value < 0){
+            if(this.entries.boldEnabled === true){
+                element.addClass('red bold');
+            } else {
+                element.addClass('red');
+                element.removeClass('bold');
+            }
+
+            return true;
+        }
+        else{
+            element.removeClass('red bold');
+            return false;
+        }
+    };
+
+    instance.turnRed = function(value, target, id) {
+        var element = this.getEl(id);
+        if(element.length === 0) {
+            console.error("Element not found: " + id);
+            return;
+        }
+
+        if(value < target){
+            if(this.entries.boldEnabled === true){
+                element.addClass('red bold');
+            } else {
+                element.addClass('red');
+                element.removeClass('bold');
+            }
+        }
+        else{
+            element.removeClass('red bold');
+        }
+    };
+
+    instance.turnRedOrGreen = function(value, target, id) {
+        var element = this.getEl(id);
+        if(element.length === 0) {
+            console.error("Element not found: " + id);
+            return;
+        }
+
+        if(value === 0){
+            if(this.entries.boldEnabled === true){
+                element.addClass('red bold');
+            } else {
+                element.addClass('red');
+                element.removeClass('bold');
+            }
+        }
+        else{
+            element.removeClass('red bold');
+        }
+
+        if(value >= target && target >= 0) {
+            element.addClass('green');
+        } else {
+            element.removeClass('green');
+        }
+    };
+
+    instance.save = function(data) {
+        data.settings = {version: this.dataVersion, entries: {}};
+        for(var id in this.entries) {
+            data.settings.entries[id] = this.entries[id];
+        }
+    };
+
+    instance.load = function(data) {
+        this.loadLegacy(data);
+
+        console.log(this.entries.hideCompleted)
+
+        if(data.settings) {
+            if(data.settings.version && data.settings.version === this.dataVersion) {
+                for(var id in data.settings.entries) {
+                    this.entries[id] = data.settings.entries[id];
+                }
+            }
+        }
+
+        console.log(this.entries.hideCompleted)
+
+        $('#formatSelector').val(this.entries.formatter);
+        $('#themeSelector').val(this.entries.theme);
+        $('#boldEnabled').prop('checked', this.entries.boldEnabled);
+        $('#sidebarCompressed').prop('checked', this.entries.sidebarCompressed);
+        $('#notificationsEnabled').prop('checked', this.entries.notificationsEnabled);
+        $('#saveNotifsEnabled').prop('checked', this.entries.saveNotifsEnabled);
+        $('#gainButtonsHidden').prop('checked', this.entries.gainButtonsHidden);
+        $('#redDestroyButtons').prop('checked', this.entries.redDestroyButtons);
+        $('#hideCompleted').prop('checked', this.entries.hideCompleted);
+
+        if(Game.settings.entries.sidebarCompressed === true){
+            for(var i = 0; i < document.getElementsByClassName("sideTab").length; i ++){
+                document.getElementsByClassName("sideTab")[i].style.height = "30px";
+            }
+        }
+        else{
+            for(var i = 0; i < document.getElementsByClassName("sideTab").length; i ++){
+                document.getElementsByClassName("sideTab")[i].style.height = "60px";
+            }
+        }
+
+        if(Game.settings.entries.gainButtonsHidden === true){
+            for(var i = 0; i < document.getElementsByClassName("gainButton").length; i ++){
+                document.getElementsByClassName("gainButton")[i].className = "gainButton hidden";
+            }
+        }
+        else{
+            for(var i = 0; i < document.getElementsByClassName("gainButton").length; i ++){
+                document.getElementsByClassName("gainButton")[i].className = "gainButton";
+            }
+        }
+
+        if(Game.settings.entries.hideCompleted === true){
+            for(var i = 0; i < document.getElementsByClassName("completed").length; i ++){
+                document.getElementsByClassName("completed")[i].className = "completed hidden";
+            }
+        }
+        else{
+            for(var i = 0; i < document.getElementsByClassName("completed").length; i ++){
+                document.getElementsByClassName("completed")[i].className = "completed";
+            }
+        }
+        
+        for(var id in autoSaveMapping) {
+            var element = $('#' + id);
+            if(this.entries.autoSaveInterval === autoSaveMapping[id]) {
+                element.val('on');
+            } else {
+                element.val('off');
+            }
+        }
+
+        this.reapplyTheme = true;
+    };
+
+    // backwards compatibility with the old stats
+    instance.loadLegacy = function(data) {
+        if(data.currentTheme) { this.set('theme', data.currentTheme); }
+    };
+
+    instance.set = function(key, value) {
+        this.entries[key] = value;
+    };
+
+    instance.initialise = function() {
+        $('#formatSelector').change(function(){
+            Game.settings.set('formatter', $(this).val());
+        });
+
+        $('#themeSelector').change(function(){
+            Game.settings.set('theme', $(this).val());
+            Game.settings.reapplyTheme = true;
+        });
+
+        $('#boldEnabled').change(function(){
+            Game.settings.set('boldEnabled', $(this).is(':checked'));
+        });
+
+        $('#sidebarCompressed').change(function(){
+            Game.settings.set('sidebarCompressed', $(this).is(':checked'));
+            if(Game.settings.entries.sidebarCompressed === true){
+                for(var i = 0; i < document.getElementsByClassName("sideTab").length; i ++){
+                    document.getElementsByClassName("sideTab")[i].style.height = "30px";
+                }
+            }
+            else{
+                for(var i = 0; i < document.getElementsByClassName("sideTab").length; i ++){
+                    document.getElementsByClassName("sideTab")[i].style.height = "60px";
+                }
+            }
+        });
+
+        $('#notificationsEnabled').change(function(){
+            Game.settings.set('notificationsEnabled', $(this).is(':checked'));
+        });
+
+        $('#saveNotifsEnabled').change(function(){
+            Game.settings.set('saveNotifsEnabled', $(this).is(':checked'));
+        });
+
+        $('#gainButtonsHidden').change(function(){
+            Game.settings.set('gainButtonsHidden', $(this).is(':checked'));
+            if(Game.settings.entries.gainButtonsHidden === true){
+                for(var i = 0; i < document.getElementsByClassName("gainButton").length; i ++){
+                    document.getElementsByClassName("gainButton")[i].className = "gainButton hidden";
+                }
+            }
+            else{
+                for(var i = 0; i < document.getElementsByClassName("gainButton").length; i ++){
+                    document.getElementsByClassName("gainButton")[i].className = "gainButton";
+                }
+            }
+        });
+
+        $('#redDestroyButtons').change(function(){
+            Game.settings.set('redDestroyButtons', $(this).is(':checked'));
+            if (Game.tech.isPurchased('unlockDestruction')) {
+                if(Game.settings.entries.redDestroyButtons === true){
+                    for(var i = 0; i < document.getElementsByClassName("destroy").length; i ++){
+                        document.getElementsByClassName("destroy")[i].className = "btn btn-danger destroy";
+                    }
+                }
+                else{
+                    for(var i = 0; i < document.getElementsByClassName("destroy").length; i ++){
+                        document.getElementsByClassName("destroy")[i].className = "btn btn-default destroy";
+                    }
+                }
+            }
+        });
+
+        if (Game.tech.isUnlocked('unlockDestruction')) {
+            if(Game.settings.entries.redDestroyButtons === true){
+                for(var i = 0; i < document.getElementsByClassName("destroy").length; i ++){
+                    document.getElementsByClassName("destroy")[i].className = "btn btn-danger destroy";
+                }
+                
+            }
+            else{
+                for(var i = 0; i < document.getElementsByClassName("destroy").length; i ++){
+                    document.getElementsByClassName("destroy")[i].className = "btn btn-default destroy";
+                }
+            }
+        }
+
+        $('#hideCompleted').change(function(){
+            Game.settings.set('hideCompleted', $(this).is(':checked'));
+            if(Game.settings.entries.hideCompleted === true){
+                for(var i = 0; i < document.getElementsByClassName("completed").length; i ++){
+                    document.getElementsByClassName("completed")[i].className = "completed hidden";
+                }
+            }
+            else{
+                for(var i = 0; i < document.getElementsByClassName("completed").length; i ++){
+                    document.getElementsByClassName("completed")[i].className = "completed";
+                }
+            }
+        });
+
+        for (var id in autoSaveMapping) {
+            var element = $('#' + id);
+            element.change({val: autoSaveMapping[id]}, function(args){
+                Game.settings.set('autoSaveInterval', args.data.val);
+            });
+        }
+    };
+
+    instance.update = function(delta) {
+        if(this.reapplyTheme === true) {
+            this.reapplyTheme = false;
+            this.updateTheme();
+        }
+    };
+
+    instance.updateTheme = function() {
+        var element = $('#theme_css');
+
+        if(element.length === 0) {
+            console.warn("Theme CSS Element does not exist!");
+            return;
+        }
+
+        if(this.entries.theme === "base") {
+            element.attr('href', 'lib/bootstrap.min.css');
+        } else {
+            element.attr('href', 'styles/' + this.entries.theme + '-bootstrap.min.css');
+        }
+    };
+
+    instance.updateCompanyName = function(){
+      document.getElementById("companyName").textContent = companyName;
+    }
+
+    return instance;
+
+}());</script>
+	<!-- ↑settings.js↑ -->
+
+
+
+
+
+
+	
+
+
+	
+
+	
+
+
+
+
+<script type="text/javascript">Game.interstellar = (function(){
+
+	var instance = {};
+
+	instance.dataVersion = 1;
+    instance.entries = {};
+    instance.categoryEntries = {};
+    instance.navCount = 0;
+
+	instance.initialise = function (){
+		for (var id in Game.interstellarData) {
+            var data = Game.interstellarData[id];
+            
+            this.navCount++;
+            this.entries[id] = $.extend({}, data, {
+                id: id,
+                htmlId: 'intnav_' + id,
+                current: 0,
+                displayNeedsUpdate: true
+            });
+            
+        }
+
+        console.debug("Loaded " + this.navCount + " Interstellar Navs");
+        this.comms.initialise();
+        this.rocketParts.initialise();
+        this.rocket.initialise();
+        this.antimatter.initialise();
+        this.military.initialise();
+        this.stars.initialise();
+	}
+
+	instance.getInterstellarData = function(id) {
+        return this.entries[id];
+    };
+
+    instance.save = function(data){
+        data.interstellar = {comms: {}, rocket: {}, rocketParts: {}, antimatter: {}, stars: {}, military: {}};
+        for(id in this.comms.entries){
+            data.interstellar.comms[id] = this.comms.entries[id];
+        }
+        for(id in this.rocket.entries){
+            data.interstellar.rocket[id] = this.rocket.entries[id];
+        }
+        for(id in this.rocketParts.entries){
+            data.interstellar.rocketParts[id] = this.rocketParts.entries[id];
+        }
+        for(id in this.antimatter.entries){
+            data.interstellar.antimatter[id] = this.antimatter.entries[id];
+        }
+        for(id in this.military.entries){
+            data.interstellar.military[id] = this.military.entries[id];
+        }
+        for(id in this.stars.entries){
+            data.interstellar.stars[id] = this.stars.entries[id];
+        }
+    };
+
+    instance.load = function(data){
+        if(data.interstellar){
+            if(typeof data.interstellar.comms !== 'undefined'){
+                for(id in data.interstellar.comms){
+                    this.comms.entries[id].count = data.interstellar.comms[id].count;
+                }
+            }
+            if(typeof data.interstellar.rocket !== 'undefined'){
+                for(id in data.interstellar.rocket){
+                    this.rocket.entries[id].built = data.interstellar.rocket[id].built;
+                }
+            }
+            if(typeof data.interstellar.rocketParts !== 'undefined'){
+                for(id in data.interstellar.rocketParts){
+                    this.rocketParts.entries[id].count = data.interstellar.rocketParts[id].count;
+                }
+            }
+            if(typeof data.interstellar.antimatter !== 'undefined'){
+                for(id in data.interstellar.antimatter){
+                    this.antimatter.entries[id].count = data.interstellar.antimatter[id].count;
+                }
+            }
+            if(typeof data.interstellar.military !== 'undefined'){
+                for(id in data.interstellar.military){
+                    this.military.entries[id].count = data.interstellar.military[id].count;
+                }
+            }
+            if(typeof data.interstellar.stars !== 'undefined'){
+                for(id in data.interstellar.stars){
+                    if(this.stars.entries[id]){
+                        this.stars.entries[id].explored = data.interstellar.stars[id].explored;
+                        this.stars.entries[id].owned = data.interstellar.stars[id].owned;
+                        this.stars.entries[id].spy = data.interstellar.stars[id].spy;
+                    }
+                }
+            }
+        }
+    };
+
+    instance.redundantChecking = function(){
+        this.military.updateShips();
+        this.military.updateFleetStats();
+        var objects = ["comms", "rocket", "antimatter", "stargate"];
+        for(var i = 0; i < objects.length; i++){
+            if(contains(activated, objects[i]) == true){
+                if(objects[i] == 'stargate'){
+                    this.entries['travel'].unlocked = true;
+                    this.entries['travel'].displayNeedsUpdate = true;
+                    this.entries['military'].unlocked = true;
+                    this.entries['military'].displayNeedsUpdate = true;
+                } else {
+                    this.entries[objects[i]].unlocked = true;
+                    this.entries[objects[i]].displayNeedsUpdate = true;
+                }
+                document.getElementById("interstellarTab").className = "";
+            }
+        }
+        for(var id in this.stars.entries){
+            var data = this.stars.getStarData(id);
+            if(data.explored == true){
+                data.displayNeedsUpdate = true;
+                document.getElementById('star_' + id + '_conquer').className = "";
+            }
+        }
+        for(var id in this.entries){
+            if(id == "rocket" || "travel")continue;
+            console.log(id)
+            for(var entry in Game.interstellar[id].entries){
+                Game.interstellar[id].updateCost[entry];
+            }
+        }
+
+        // stargaze
+        if(sphere != 0){
+            Game.stargaze.unlocked = true;
+        }
+    };
+
+	return instance;
+
+
+}());
+
+Game.interstellar.comms = (function(){
+
+    var instance = {};
+
+    instance.entries = {};
+    instance.categoryEntries = {};
+    instance.entries = {};
+
+    instance.initialise = function(){
+        for (var id in Game.commsData) {
+            var data = Game.commsData[id];
+            this.navCount++;
+            this.entries[id] = $.extend({}, data, {
+                id: id,
+                htmlId: 'comm_' + id,
+                count: 0,
+                displayNeedsUpdate: true
+            });
+        }
+    };
+
+    instance.calcCost = function(self, resource){
+        return Math.floor(self.defaultCost[resource.toString()] * Math.pow(1.1,self.count));
+    };
+
+    instance.updateCost = function(entryName){
+        for(var resource in this.entries[entryName].cost){
+            var target = 0;
+            for(var i = 0; i < Object.keys(Game.interstellarUI.commObservers[entryName]).length; i++){
+                if(resource == Game.interstellarUI.commObservers[entryName][i].resource){
+                    this.entries[entryName].cost[resource.toString()] = this.calcCost(this.entries[entryName], resource);
+                    Game.interstellarUI.commObservers[entryName][i].value = this.entries[entryName].cost[resource.toString()];
+                }
+            }
+        }
+    };
+
+    instance.buildMachine = function(entryName) {
+        // Add the buildings and clamp to the maximum
+        var data = this.entries[entryName];
+        if(data.count >= data.max){
+            return;
+        }
+        var resourcePass = 0;
+        for(var resource in data.cost){
+            if(window[resource.toString()] >= data.cost[resource.toString()]){
+                resourcePass += 1;
+            }
+        }
+        if(resourcePass === Object.keys(data.cost).length){
+            data.count += 1;
+            for(var resource in data.cost){
+                window[resource.toString()] -= data.cost[resource.toString()];
+            }            
+            data.displayNeedsUpdate = true;
+        }
+        this.updateCost(entryName);
+    };
+
+    instance.unlock = function(id) {
+        this.entries[id].unlocked = true;
+        this.entries[id].displayNeedsUpdate = true;
+    };
+
+    instance.getMachineData = function(id) {
+        return this.entries[id];
+    };
+
+    return instance;
+
+}());
+
+Game.interstellar.antimatter = (function(){
+
+    var instance = {};
+
+    instance.entries = {};
+    instance.categoryEntries = {};
+    instance.entries = {};
+
+    instance.initialise = function(){
+        for (var id in Game.antimatterData) {
+            var data = Game.antimatterData[id];
+            this.navCount++;
+            this.entries[id] = $.extend({}, data, {
+                id: id,
+                htmlId: 'antimatter_' + id,
+                count: 0,
+                displayNeedsUpdate: true
+            });
+        }
+    };
+
+    instance.calcCost = function(self, resource){
+        return Math.floor(self.defaultCost[resource.toString()] * Math.pow(1.1,self.count));
+    };
+
+    instance.updateCost = function(entryName){
+        for(var resource in this.entries[entryName].cost){
+            var target = 0;
+            for(var i = 0; i < Object.keys(Game.interstellarUI.antimatterObservers[entryName]).length; i++){
+                if(resource == Game.interstellarUI.antimatterObservers[entryName][i].resource){
+                    this.entries[entryName].cost[resource.toString()] = this.calcCost(this.entries[entryName], resource);
+                    Game.interstellarUI.antimatterObservers[entryName][i].value = this.entries[entryName].cost[resource.toString()];
+                }
+            }
+        }
+    };
+
+    instance.buildMachine = function(entryName) {
+        // Add the buildings and clamp to the maximum
+        var data = this.entries[entryName];
+        var resourcePass = 0;
+        for(var resource in data.cost){
+            if(window[resource.toString()] >= data.cost[resource.toString()]){
+                resourcePass += 1;
+            }
+        }
+        if(resourcePass === Object.keys(data.cost).length){
+            data.count += 1;
+            for(var resource in data.cost){
+                window[resource.toString()] -= data.cost[resource.toString()];
+            }            
+            data.displayNeedsUpdate = true;
+        }
+        this.updateCost(entryName);
+    };
+
+    instance.destroyMachine = function(entryName){
+        if(this.entries[entryName].count > 0){
+            this.entries[entryName].count -= 1;
+            this.updateCost(entryName);
+        }
+    };
+
+    instance.unlock = function(id) {
+        this.entries[id].unlocked = true;
+        this.entries[id].displayNeedsUpdate = true;
+    };
+
+    instance.getMachineData = function(id) {
+        return this.entries[id];
+    };
+
+    return instance;
+
+}());
+
+Game.interstellar.military = (function(){
+
+    var instance = {};
+
+    instance.entries = {};
+    instance.categoryEntries = {};
+    instance.entries = {};
+
+    instance.power = 0;
+    instance.defense = 0;
+    instance.speed = 0;
+
+    instance.activePower = 0;
+    instance.activeDefense = 0;
+    instance.activeSpeed = 0;
+
+    instance.initialise = function(){
+        for (var id in Game.militaryData) {
+            var data = Game.militaryData[id];
+            this.navCount++;
+            this.entries[id] = $.extend({}, data, {
+                id: id,
+                htmlId: 'milit_' + id,
+                count: 0,
+                active: 0,
+                displayNeedsUpdate: true
+            });
+        }
+    };
+
+    instance.calcCost = function(self, resource){
+        return Math.floor(self.defaultCost[resource.toString()] * Math.pow(1.1,self.count));
+    };
+
+    instance.updateCost = function(entryName){
+        for(var resource in this.entries[entryName].cost){
+            var target = 0;
+            for(var i = 0; i < Object.keys(Game.interstellarUI.militaryObservers[entryName]).length; i++){
+                if(resource == Game.interstellarUI.militaryObservers[entryName][i].resource){
+                    this.entries[entryName].cost[resource.toString()] = this.calcCost(this.entries[entryName], resource);
+                    Game.interstellarUI.militaryObservers[entryName][i].value = this.entries[entryName].cost[resource.toString()];
+                }
+            }
+        }
+    };
+
+    instance.buildShip = function(entryName) {
+        // Add the ships and clamp to the maximum
+        var resourcePass = 0;
+        var ship = this.entries[entryName];
+        for(var resource in ship.cost){
+            if(window[resource.toString()] >= ship.cost[resource.toString()]){
+                resourcePass += 1;
+            }
+        }
+        if(resourcePass === Object.keys(ship.cost).length){
+            ship.count += 1;
+            for(var resource in ship.cost){
+                window[resource.toString()] -= ship.cost[resource.toString()];
+            }            
+            ship.displayNeedsUpdate = true;
+        }
+        this.updateCost(entryName);
+        this.updateFleetStats();
+        this.updateShips();
+    };
+
+    instance.updateFleetStats = function(){
+        // Total Ships
+        var number = 0;
+        var stats = {power: 0, defense: 0, speed: 0};
+        for(var shipClass in this.entries){
+            var data = this.entries[shipClass];
+            var count = data.count;
+            stats.power += data.stats.power*count;
+            stats.defense += data.stats.defense*count;
+            stats.speed += data.stats.speed*count;
+            number += count;
+        }
+        if(number != 0){
+            stats.speed = Math.floor(stats.speed/number);
+            for(var stat in stats){
+                var updateList = document.getElementsByClassName("fleet" + Game.utils.capitaliseFirst(stat));
+                for(var j = 0; j < updateList.length; j++){
+                    updateList[j].textContent = stats[stat];
+                }
+            }
+            this.power = stats.power;
+            this.defense = stats.defense;
+            this.speed = stats.speed;
+        }
+
+        //Active Ships
+        var number = 0;
+        stats = {power: 0, defense: 0, speed: 0};
+        for(var shipClass in this.entries){
+            var data = this.entries[shipClass];
+            var count = data.active;
+            stats.power += data.stats.power*count;
+            stats.defense += data.stats.defense*count;
+            stats.speed += data.stats.speed*count;
+            number += count;
+        }
+        stats.speed = Math.floor(stats.speed/number);
+        if(number == 0)stats.speed = 0;
+        for(var stat in stats){
+            var updateList = document.getElementsByClassName("activeFleet" + Game.utils.capitaliseFirst(stat));
+            for(var j = 0; j < updateList.length; j++){
+                updateList[j].textContent = stats[stat];
+            }
+        }
+        this.activePower = stats.power;
+        this.activeDefense = stats.defense;
+        this.activeSpeed = stats.speed;
+    };
+
+    instance.updateShips = function(){
+        for(var ship in this.entries){
+            if(this.entries[ship].displayNeedsUpdate == true){
+                var updateList = document.getElementsByClassName(ship + "Count");
+                for(var i = 0; i < updateList.length; i++){
+                    updateList[i].textContent = this.entries[ship].count;
+                }
+                var activeUpdateList = document.getElementsByClassName(ship + "Active");
+                for(var i = 0; i < activeUpdateList.length; i++){
+                    activeUpdateList[i].textContent = this.entries[ship].active;
+                }
+                ship.displayNeedsUpdate = false;
+            }
+        }
+    };
+
+    instance.updateActiveShips = function(){
+        for(var ship in this.entries){
+            if(this.entries[ship].displayNeedsUpdate == true){
+                var activeUpdateList = document.getElementsByClassName(ship + "Active");
+                for(var i = 0; i < activeUpdateList.length; i++){
+                    activeUpdateList[i].textContent = this.entries[ship].active;
+                }
+                ship.displayNeedsUpdate = false;
+            }
+        }
+    }
+
+    instance.addShip = function(shipName, num){
+        var ship = this.entries[shipName];
+        if(num == "max"){
+            ship.active = ship.count;
+        } else if(num == "none"){
+            ship.active = 0;
+        } else if(ship.active + num <= ship.count && ship.active + num >= 0){
+            ship.active += num;
+        }
+        ship.displayNeedsUpdate = true;
+        this.updateFleetStats();
+        this.updateActiveShips();
+        for(var star in Game.interstellar.stars.entries){
+            var data = Game.interstellar.stars.entries[star];
+            if(data.explored == true && data.owned == false){
+                data.displayNeedsUpdate = true;
+            }
+        }
+    };
+
+    instance.getThreat = function(power, speed, num){
+        var threatLevels = ["•", "••", "•••", "I", "II", "III", "X", "XX", "XXX", "XXXX", "XXXXX", "XXXXXX"];
+        var threshholds = [320,800,1440,2240,3200,4320,5600,7040,8640,10400,12320,14400];
+        var level = 0;
+        for(var i = 0; i < threshholds.length; i++){
+            if(power*speed >= threshholds[i]){
+                level += 1;
+            } else {
+                continue;
+            }
+        }
+        if(num){
+            return level;
+        } else {
+            return threatLevels[level];
+        }
+    };
+
+    instance.getSpyChance = function(star, multi){
+        var threat = this.getThreat(star.stats.power*(multi||1), star.stats.speed, true)+1;
+        return chance = this.entries.scout.active/threat*(20/(star.spy+1));
+    }
+
+    instance.spy = function(starName){
+        console.log("Spying on " + starName);
+        var star = Game.interstellar.stars.getStarData(starName);
+        var chance = this.getSpyChance(star)/100;
+        var roll = Math.random();
+        if(chance >= roll){
+            star.spy += 1;
+            Game.notifyInfo("Successful Espionage!", "You have found out more about the star system!");
+        } else {
+            var scout = this.entries.scout;
+            scout.count -= scout.active;
+            scout.active = 0;
+            Game.notifyInfo("Espionage Failed!", "You lost all of your active scouts.");
+        }
+        star.displayNeedsUpdate = true;
+        this.updateFleetStats();
+        this.updateShips();
+    };
+
+    instance.getMultiplier = function(factionId){
+        var op=Game.stargaze.getStargazeData(factionId).opinion;
+        if(op>=20&&op<60){
+            return 0.5;
+        } else if(op>=-20&&op<20){
+            return 1;
+        } else if(op>=-60&&op<-20){
+            return 2;
+        } else if(op<-60){
+            return 3;
+        } else{
+            return 0;
+        }
+    };
+
+
+    instance.getChance = function(star){
+        if(this.power!=0){
+            var multi = this.getMultiplier(star.factionId);
+            if(multi == 0){
+                return "peace";
+            }
+            var damage = (this.activePower/(star.stats.defense*multi))*this.activeSpeed;
+            var starDamage = (star.stats.power*multi/Math.max(this.activeDefense,1))*star.stats.speed;
+            if(damage > starDamage){
+                return (damage/starDamage)-0.5;
+            } else {
+                if(damage != 0)return Math.max(0, 1.5-(starDamage/damage));
+            }
+        }
+    }
+
+    instance.invadeSystem = function(starName){
+        if(this.power!=0){
+            var star = Game.interstellar.stars.getStarData(starName);
+            var chance = this.getChance(star);
+            if(chance == "peace"){
+                instance.absorbSystem(starName);
+                return;
+            }
+            var roll = Math.random();
+            if(chance >= roll){
+                star.owned = true;
+                newUnlock('solCenter');
+                var losses = false;
+                for(var ship in this.entries){
+                    var shipData = this.getShipData(ship);
+                    for(var i = 0; i < shipData.active; i++){
+                        // Chance to keep the ship
+                        var destroyChance = Math.random();
+                        if(destroyChance > chance){
+                            losses = true;
+                            shipData.active -= 1;
+                            shipData.count -= 1;
+                        }
+                    }
+                    shipData.displayNeedsUpdate = true;
+                }
+                if(losses){
+                    Game.notifyInfo("Successful Invasion!", "You have conquered " + star.name + " and now gain production boosts from it in " + star.resource1 + " and " + star.resource2 + ". Despite your victory, you may have lost some ships in battle.");
+                } else {
+                    Game.notifyInfo("Successful Invasion!", "You have conquered " + star.name + " without any losses and now gain production boosts from it in " + star.resource1 + " and " + star.resource2 + "!");                    
+                }
+                var faction = Game.stargaze.getStargazeData(star.factionId);
+                faction.opinion -= 10;
+                faction.displayNeedsUpdate = true;
+            } else {
+                for(var ship in this.entries){
+                    var shipData = this.getShipData(ship);
+                    for(var i = shipData.active; i > 0; i--){
+                        // Destroy all active ships
+                        shipData.active -= 1;
+                        shipData.count -= 1;
+                    }
+                    shipData.displayNeedsUpdate = true;
+                }
+                Game.notifyInfo("Failed Invasion!", "Unfortunately, the enemy forces were too strong for you. They have destroyed all of your active ships.");
+            }
+            star.displayNeedsUpdate = true;
+            this.updateFleetStats();
+            this.updateShips();
+        }
+    };
+
+    instance.absorbSystem = function(id){
+        var data = Game.interstellar.stars.entries[id];
+        var faction = Game.stargaze.getStargazeData(data.factionId);
+        if(faction.opinion >= 60){
+            faction.opinion -= 5;
+            data.owned = true;
+            data.displayNeedsUpdate = true;
+            faction.displayNeedsUpdate = true;
+            Game.notifyInfo("Successful Absorbtion!", "You have conquered " + data.name + " peacefully and now gain production boosts from it in " + data.resource1 + " and " + data.resource2 + ". Congratulations!");
+        }
+    };
+
+    instance.unlock = function(id) {
+        this.entries[id].unlocked = true;
+        this.entries[id].displayNeedsUpdate = true;
+    };
+
+    instance.getShipData = function(id) {
+        return this.entries[id];
+    };
+
+    return instance;
+
+}());</script>
+	<!-- interstellar.js -->
+
+
+
+
+	
+
+	
+
+
+
+
+	
+
+	
+
+
+
+
+
+<script type="text/javascript"></script>
+	<!-- resource.js -->
+<script type="text/javascript"></script>
+	<!-- resource.js -->
+<script type="text/javascript"></script>
+	<!-- resource.js -->
+<script type="text/javascript"></script>
+	<!-- resource.js -->
+<script type="text/javascript"></script>
+	<!-- resource.js -->
+<script type="text/javascript"></script>
+	<!-- resource.js -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+	
+
+
+
 
 	<script type="text/javascript">(function(){
 
